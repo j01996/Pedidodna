@@ -1,0 +1,239 @@
+import streamlit as st
+import pandas as pd
+import gspread
+from datetime import datetime, date
+
+# 1. Configuração da Página
+st.set_page_config(page_title="DNA South America - Gestão de Pedidos", layout="wide")
+
+# --- ESTILO ---
+st.markdown("""
+    <style>
+    .vendedor-header { font-size: 18px; font-weight: normal; color: #31333F; }
+    </style>
+""", unsafe_allow_html=True)
+
+# 2. Conexão com Google Sheets
+@st.cache_resource
+def iniciar_conexao():
+    try:
+        info = st.secrets["minha_nova_conexao"]
+        client = gspread.service_account_from_dict(info)
+        sh = client.open_by_key("19Hxt0HwrHeEZm-OFv7M9NAQgZjoHdmBpGBSrSHofNbk")
+        return sh
+    except Exception as e:
+        st.error(f"⚠️ Erro de Conexão: {e}")
+        return None
+
+sh = iniciar_conexao()
+
+# --- FUNÇÃO DE LOGIN E REGISTRO ---
+def realizar_login(sh):
+    if "autenticado" not in st.session_state:
+        st.session_state.autenticado = False
+
+    if not st.session_state.autenticado:
+        st.title("DNA South America - Pedidos de Animais")
+        aba_login, aba_registro = st.tabs(["Acessar Conta", "Criar Nova Conta"])
+
+        with aba_login:
+            with st.form("form_login"):
+                email_input = st.text_input("E-mail").strip().lower()
+                senha_input = st.text_input("Senha", type="password").strip()
+                if st.form_submit_button("Entrar"):
+                    try:
+                        aba_users = sh.worksheet("Usuarios")
+                        df_users = pd.DataFrame(aba_users.get_all_records())
+                        df_users.columns = [str(c).strip().lower() for c in df_users.columns]
+                        col_email = next((c for c in df_users.columns if 'mail' in c), None)
+                        user_match = df_users[(df_users[col_email].str.lower() == email_input) & (df_users['senha'].astype(str) == senha_input)]
+                        if not user_match.empty:
+                            st.session_state.autenticado = True
+                            st.session_state.user_email = email_input
+                            st.session_state.user_nome = user_match.iloc[0]['nome']
+                            st.session_state.user_nivel = user_match.iloc[0].get('nivel', 'Vendedor')
+                            st.rerun()
+                        else: st.error("🚫 E-mail ou senha incorretos.")
+                    except Exception as e: st.error(f"Erro ao acessar base: {e}")
+
+        with aba_registro:
+            st.subheader("📝 Cadastre seu usuário")
+            with st.form("form_registro"):
+                novo_nome = st.text_input("Nome Completo")
+                novo_email = st.text_input("E-mail corporativo").strip().lower()
+                nova_senha = st.text_input("Defina uma Senha", type="password").strip()
+                confirmar_senha = st.text_input("Confirme a Senha", type="password").strip()
+                if st.form_submit_button("Registrar e Acessar"):
+                    if not novo_nome or not novo_email or not nova_senha: st.warning("Preencha todos os campos.")
+                    elif nova_senha != confirmar_senha: st.error("As senhas não coincidem.")
+                    else:
+                        try:
+                            aba_users = sh.worksheet("Usuarios")
+                            aba_users.append_row([novo_nome, novo_email, nova_senha, "Vendedor"])
+                            st.success("✅ Conta criada! Faça o login.")
+                        except Exception as e: st.error(f"Erro ao registrar: {e}")
+        return False
+    return True
+
+# --- LISTAS DE OPÇÕES ---
+opcoes_desc = ["Matriz L600 Núcleo 100kg", "Matriz L600 Núcleo 110kg", "Matriz L600 Núcleo 20kg", "Matriz L600 Núcleo 30kg", "Matriz L600 Núcleo 40kg", "Matriz L600 Núcleo 50kg", "Matriz L600 Núcleo 60kg", "Matriz L600 Núcleo 70kg", "Matriz L600 Núcleo 80kg", "Matriz L600 Núcleo 90kg", "Matriz L241", "Matriz L241 100kg", "Matriz L241 110kg", "Matriz L241 20kg", "Matriz L241 30kg", "Matriz L241 40kg", "Matriz L241 50kg", "Matriz L241 60kg", "Matriz L241 70kg", "Matriz L241 80kg", "Matriz L241 90kg", "Matriz L241 Retenção", "Matriz Avó L400 100kg", "Matriz Avó L400 110kg", "Matriz Avó L400 20kg", "Matriz Avó L400 30kg", "Matriz Avó L400 40kg", "Matriz Avó L400 50kg", "Matriz Avó L400 60kg", "Matriz Avó L400 70kg", "Matriz Avó L400 80kg", "Matriz Avó L400 90kg", "Matriz Avó L400 Off Test", "Matriz Avó L400 Retenção", "Matriz Bisavó L400", "Matriz Bisavó L400 100kg", "Matriz Bisavó L400 110kg", "Matriz Bisavó L400 20kg", "Matriz Bisavó L400 30kg", "Matriz Bisavó L400 40kg", "Matriz Bisavó L400 50kg", "Matriz Bisavó L400 60kg", "Matriz Bisavó L400 70kg", "Matriz Bisavó L400 80kg", "Matriz Bisavó L400 90kg", "Matriz Bisavó L400 Retenção", "Matriz Avó L200", "Matriz Avó L200 100kg", "Matriz Avó L200 110kg", "Matriz Avó L200 20kg", "Matriz Avó L200 30kg", "Matriz Avó L200 40kg", "Matriz Avó L200 50kg", "Matriz Avó L200 60kg", "Matriz Avó L200 70kg", "Matriz Avó L200 80kg", "Matriz Avó L200 90kg", "Matriz Avó L200 Off Test", "Matriz Avó L200 Retenção", "Matriz Bisavó L200", "Matriz Bisavó L200 100kg", "Matriz Bisavó L200 110kg", "Matriz Bisavó L200 20kg", "Matriz Bisavó L200 30kg", "Matriz Bisavó L200 40kg", "Matriz Bisavó L200 50kg", "Matriz Bisavó L200 60kg", "Matriz Bisavó L200 70kg", "Matriz Bisavó L200 80kg", "Matriz Bisavó L200 90kg", "Matriz Bisavó L200 Retenção", "Reprodutor L600 Núcleo", "Reprodutor Terminador L600", "Reprodutor Terminador L600 Deca 1", "Reprodutor Terminador L600 Deca 2", "Reprodutor Terminador L600 Deca 3", "Reprodutor Avô L400", "Reprodutor Núcleo L400", "Reprodutor Avô L200", "Reprodutor Núcleo L200", "Reprodutor L600/USA", "Reprodutor L400/USA", "Reprodutor L200/USA", "Reprodutor Terminador Duroc Núcleo", "Reprodutor Rufiao", "Matriz L241 Prime", "Matriz L241 100kg Prime", "Matriz L241 110kg Prime", "Matriz L241 20kg Prime", "Matriz L241 30kg Prime", "Matriz L241 40kg Prime", "Matriz L241 50kg Prime", "Matriz L241 60kg Prime", "Matriz L241 70kg Prime", "Matriz L241 80kg Prime", "Matriz L241 90kg Prime"]
+opcoes_linhagem = ["L600 Fêmea", "L400 Fêmea", "L200 Fêmea", "L600 Macho", "L400 Macho", "Rufião"]
+opcoes_modalidade = ["VENDA DIRETA", "ALUGUEL", "RETENÇÃO F1", "RETENÇÃO AVÓ"]
+prazos_femea = ["Á VISTA", "10, 15", "10, 15, 30", "10, 15, 30, 45", "10, 30", "10, 30, 45", "10, 30, 45, 60", "10, 30, 45, 60, 90", "10,30, 60", "10, 30, 60, 90", "30", "15", "45", "60", "90", "30, 45, 60", "30, 45", "30, 45, 60, 75", "30, 60, 90", "30, 60", "OUTRO (ESPECIFICAR NA OBSERVAÇÃO)"]
+prazos_macho = ["Á VISTA", "10, 15", "10, 15, 30", "10, 15, 30, 45", "10, 30", "10, 30, 45", "10, 30, 45, 60", "10, 30, 45, 60, 90", "10,30, 60", "10, 30, 60, 90", "30", "15", "45", "60", "90", "30, 45, 60", "30, 45", "30, 45, 60, 75", "30, 60, 90", "30, 60", "30, 60, 90, 120", "30,60,90,120, 150", "30, 60, 90, 120, 150, 180", "30, 60, 90, 120, 150, 180, 210", "30,60,90, 120, 150, 180, 210, 240", "30,60,90, 120, 150, 180, 210, 240, 270", "30,60,90, 120, 150, 180, 210, 240, 270, 300", "30,60,90, 120, 150, 180, 210, 240, 270, 300, 330", "30,60,90, 120, 150, 180, 210, 240, 270, 300, 330, 360", "OUTRO (ESPECIFICAR NA OBSERVAÇÃO)"]
+opcoes_indexador = ["ASEMG", "APCS", "JOX MÉDIO/SP", "ACRISMAT", "CEPEA/PR", "CEPEA/SC", "CEPEA/RS", "CEPEA/SP", "CEPEA/MG", "DFSUIN"]
+opcoes_sim_nao = ["Sim", "Não"]
+
+column_config_padrao = {
+    "Descrição": st.column_config.SelectboxColumn("Descrição", options=opcoes_desc, required=True),
+    "Linhagem": st.column_config.SelectboxColumn("Linhagem", options=opcoes_linhagem, required=True),
+    "Modalidade": st.column_config.SelectboxColumn("Modalidade", options=opcoes_modalidade),
+    "Prazo pagamento da Fêmea": st.column_config.SelectboxColumn("Prazo pagamento da Fêmea", options=prazos_femea),
+    "Prazo de pagamento do Macho": st.column_config.SelectboxColumn("Prazo de pagamento do Macho", options=prazos_macho),
+    "Indexador": st.column_config.SelectboxColumn("Indexador", options=opcoes_indexador),
+    "Cobrar Frete": st.column_config.SelectboxColumn("Cobrar Frete", options=opcoes_sim_nao),
+    "Cobrar Registro Genealógico": st.column_config.SelectboxColumn("Cobrar Registro Genealógico", options=opcoes_sim_nao),
+    "Data de entrega": st.column_config.DateColumn("Data de entrega", format="DD/MM/YYYY")
+}
+
+# --- PROGRAMA PRINCIPAL ---
+if sh:
+    if realizar_login(sh):
+        st.sidebar.write(f"👤 Usuário: **{st.session_state.user_nome}**")
+        
+        # --- BOTÃO PARA ATUALIZAR BASE SAP ---
+        if st.sidebar.button("🔄 Atualizar Base de Dados"):
+            st.cache_data.clear()
+            st.success("Base atualizada com sucesso!")
+            st.rerun()
+
+        if st.sidebar.button("Sair"):
+            st.session_state.autenticado = False
+            st.rerun()
+
+        @st.cache_data(ttl=600)
+        def carregar_clientes(_sh):
+            ws = _sh.worksheet("Base de clientes sap")
+            df = pd.DataFrame(ws.get_all_records())
+            df.columns = [str(col).strip() for col in df.columns]
+            return df
+
+        df_sap = carregar_clientes(sh)
+        aba = st.sidebar.radio("Navegação", ["Novo Pedido", "Gerenciar Pedido", "Histórico de Vendas"])
+
+        # --- ABA 1: NOVO PEDIDO ---
+        if aba == "Novo Pedido":
+            st.subheader("Novo Pedido de Venda")
+            if st.button("Limpar"): st.rerun()
+
+            lista_clientes = [""] + sorted(df_sap['Razão Social'].unique().tolist())
+            cliente_sel = st.selectbox("Selecione o Cliente", lista_clientes)
+            
+            if cliente_sel != "":
+                dados_cli = df_sap[df_sap['Razão Social'] == cliente_sel].iloc[0]
+                with st.expander("📄 Detalhes do Cliente (Editáveis)", expanded=True):
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        in_cnpj = st.text_input("CNPJ/CPF", value=str(dados_cli.get('CPF_CNPJ', '')))
+                        in_ie = st.text_input("I.E", value=str(dados_cli.get('I.E', '')))
+                    with c2:
+                        in_cid = st.text_input("Cidade", value=str(dados_cli.get('Cidade', '')))
+                        in_est = st.text_input("Estado", value=str(dados_cli.get('Estado', '')))
+                    with c3:
+                        in_gta_cod = st.text_input("GTA - Código", value=str(dados_cli.get('GTA - Código do estabelecimento', '')))
+                        in_gta_est = st.text_input("GTA - Estabelecimento", value=str(dados_cli.get('GTA - Estabelecimento', '')))
+
+                with st.form("form_venda", clear_on_submit=True):
+                    vendedor_final = st.text_input("Vendedor Responsável", value=st.session_state.user_nome, disabled=True)
+                    data_ped = st.date_input("Data do Pedido", datetime.now())
+                    
+                    df_vazio = pd.DataFrame(columns=["Descrição", "Linhagem", "Modalidade", "Quantidade", "KG Total", "USD", "Preço Unitário R$", "Prêmio Genético", "Prazo pagamento da Fêmea", "Prazo de pagamento do Macho", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega"])
+                    tabela = st.data_editor(df_vazio, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
+                    obs = st.text_area("Observações Adicionais")
+                    
+                    if st.form_submit_button("💾 SALVAR NOVO PEDIDO"):
+                        if tabela.empty or not any(tabela['Descrição']): st.warning("⚠️ Adicione itens.")
+                        else:
+                            id_p = f"DNA-{datetime.now().strftime('%Y%m%d-%H%M')}"
+                            try:
+                                aba_pedidos = sh.worksheet("Relatorio de pedidos")
+                                for _, row in tabela.iterrows():
+                                    if row['Descrição'] and str(row['Descrição']) != "None":
+                                        dt_s = row.get('Data de entrega').strftime("%d/%m/%Y") if isinstance(row.get('Data de entrega'), (date, datetime)) else ""
+                                        row_cln = ["" if pd.isna(v) or str(v) == "None" else str(v) for v in row.tolist()]
+                                        aba_pedidos.append_row([
+                                            id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
+                                            row_cln[0], row_cln[1], row_cln[2], row_cln[3], row_cln[4], row_cln[5],
+                                            row_cln[6], row_cln[7], row_cln[8], row_cln[9], row_cln[10], row_cln[11],
+                                            row_cln[12], row_cln[13], row_cln[14], row_cln[15], dt_s, 
+                                            in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est
+                                        ])
+                                st.success(f"✅ Pedido {id_p} cadastrado com sucesso!")
+                                st.cache_data.clear()
+                            except Exception as e: st.error(f"Erro ao salvar: {e}")
+            else: st.info("Selecione um cliente para iniciar o pedido")
+
+        # --- ABA 2: GERENCIAR PEDIDO ---
+        elif aba == "Gerenciar Pedido":
+            st.subheader("Gerenciar Pedido")
+            id_busca = st.text_input("Digite o ID do Pedido para buscar").strip()
+            if id_busca:
+                try:
+                    aba_p = sh.worksheet("Relatorio de pedidos")
+                    df_total = pd.DataFrame(aba_p.get_all_records())
+                    df_total.columns = [str(c).strip() for c in df_total.columns]
+                    
+                    filtro = (df_total['ID Pedido'] == id_busca)
+                    if st.session_state.user_nivel != "Admin":
+                        filtro = filtro & (df_total['Vendedor'] == st.session_state.user_nome)
+                    
+                    ped_comp = df_total[filtro].copy()
+                    if not ped_comp.empty:
+                        orig = ped_comp.iloc[0].to_dict()
+                        st.write(f"Pedido: {id_busca}  |  Cliente: {orig.get('Cliente')}  |  Data: {orig.get('Data')}")
+                        
+                        cols_edit = ["Descrição", "Linhagem", "Modalidade", "Quantidade", "KG Total", "USD", "Preço Unitário R$", "Prêmio Genético", "Prazo pagamento da Fêmea", "Prazo de pagamento do Macho", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Observação"]
+                        ped_filtro = ped_comp[cols_edit].copy()
+                        ped_filtro = ped_filtro.replace(["None", "nan", None], "")
+                        ped_filtro['Data de entrega'] = pd.to_datetime(ped_filtro['Data de entrega'], dayfirst=True, errors='coerce')
+                        
+                        df_ed = st.data_editor(ped_filtro, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
+                        
+                        if st.button("🆙 ATUALIZAR PEDIDO"):
+                            cell_list = aba_p.findall(id_busca)
+                            rows_indices = sorted(list(set([c.row for c in cell_list])))
+                            posicao_inicial = rows_indices[0]
+                            for r in sorted(rows_indices, reverse=True): aba_p.delete_rows(r)
+                            
+                            novas_linhas = []
+                            for _, r in df_ed.iterrows():
+                                if r.get('Descrição') and str(r.get('Descrição')) not in ["", "None", "nan"]:
+                                    dt_s = r.get('Data de entrega').strftime("%d/%m/%Y") if pd.notnull(r.get('Data de entrega')) else ""
+                                    row_vals = ["" if pd.isna(v) or str(v) in ["None", "nan"] else str(v) for v in r.tolist()]
+
+                                    novas_linhas.append([
+                                        id_busca, str(orig['Cliente']), str(orig['Vendedor']), str(orig['Data']),
+                                        row_vals[0], row_vals[1], row_vals[2], row_vals[3], row_vals[4], 
+                                        row_vals[5], row_vals[6], row_vals[7], row_vals[8], row_vals[9],
+                                        row_vals[10], row_vals[11], row_vals[12], row_vals[13], row_vals[14],
+                                        row_vals[15], dt_s, 
+                                        str(orig.get('Cidade','')), str(orig.get('Estado','')), row_vals[17],
+                                        str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - I.E.','')),
+                                        str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento',''))
+                                    ])
+                            aba_p.insert_rows(novas_linhas, row=posicao_inicial)
+                            st.success(f"✅ Pedido {id_busca} atualizado com sucesso!")
+                            st.rerun()
+                    else: st.warning("Pedido não encontrado ou sem permissão.")
+                except Exception as e: st.error(f"Erro: {e}")
+
+        # --- ABA 3: HISTÓRICO ---
+        elif aba == "Histórico de Vendas":
+            st.subheader("Meus Registros")
+            try:
+                aba_p = sh.worksheet("Relatorio de pedidos")
+                df_hist = pd.DataFrame(aba_p.get_all_records())
+                if st.session_state.user_nivel != "Admin":
+                    df_hist = df_hist[df_hist['Vendedor'] == st.session_state.user_nome]
+                st.dataframe(df_hist, use_container_width=True)
+            except Exception as e: st.error(f"Erro: {e}")

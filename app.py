@@ -101,10 +101,10 @@ if sh:
     if realizar_login(sh):
         st.sidebar.write(f"👤 Usuário: **{st.session_state.user_nome}**")
         
-        # --- BOTÃO PARA ATUALIZAR BASE SAP ---
+        # Botão para atualizar dados manualmente
         if st.sidebar.button("🔄 Atualizar Base de Dados"):
             st.cache_data.clear()
-            st.success("Base atualizada com sucesso!")
+            st.success("Dados recarregados!")
             st.rerun()
 
         if st.sidebar.button("Sair"):
@@ -159,17 +159,21 @@ if sh:
                                 aba_pedidos = sh.worksheet("Relatorio de pedidos")
                                 for _, row in tabela.iterrows():
                                     if row['Descrição'] and str(row['Descrição']) != "None":
-                                        # --- FIX: CAPTURA E FORMATAÇÃO DA DATA DE ENTREGA ---
-                                        data_ent = row.get('Data de entrega')
-                                        dt_s = data_ent.strftime("%d/%m/%Y") if pd.notnull(data_ent) and isinstance(data_ent, (date, datetime)) else ""
-                                        
+                                        # --- TRATAMENTO ROBUSTO DA DATA ---
+                                        d_ent = row.get('Data de entrega')
+                                        if pd.notnull(d_ent):
+                                            if hasattr(d_ent, 'strftime'): dt_str = d_ent.strftime("%d/%m/%Y")
+                                            else: dt_str = str(d_ent)
+                                        else: dt_str = ""
+
                                         row_cln = ["" if pd.isna(v) or str(v) == "None" else str(v) for v in row.tolist()]
+                                        
                                         aba_pedidos.append_row([
                                             id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
                                             row_cln[0], row_cln[1], row_cln[2], row_cln[3], row_cln[4], row_cln[5],
                                             row_cln[6], row_cln[7], row_cln[8], row_cln[9], row_cln[10], row_cln[11],
                                             row_cln[12], row_cln[13], row_cln[14], row_cln[15], 
-                                            dt_s, # <--- Data de Entrega formatada
+                                            dt_str, # Inserindo a data formatada corretamente aqui
                                             in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est
                                         ])
                                 st.success(f"✅ Pedido {id_p} cadastrado com sucesso!")
@@ -212,8 +216,9 @@ if sh:
                             novas_linhas = []
                             for _, r in df_ed.iterrows():
                                 if r.get('Descrição') and str(r.get('Descrição')) not in ["", "None", "nan"]:
-                                    dt_ent = r.get('Data de entrega')
-                                    dt_s = dt_ent.strftime("%d/%m/%Y") if pd.notnull(dt_ent) and isinstance(dt_ent, (date, datetime)) else ""
+                                    d_ed = r.get('Data de entrega')
+                                    dt_s = d_ed.strftime("%d/%m/%Y") if pd.notnull(d_ed) and hasattr(d_ed, 'strftime') else ""
+                                    
                                     row_vals = ["" if pd.isna(v) or str(v) in ["None", "nan"] else str(v) for v in r.tolist()]
 
                                     novas_linhas.append([

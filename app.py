@@ -6,13 +6,6 @@ from datetime import datetime, date
 # 1. Configuração da Página
 st.set_page_config(page_title="DNA South America - Gestão de Pedidos", layout="wide")
 
-# --- ESTILO ---
-st.markdown("""
-    <style>
-    .vendedor-header { font-size: 18px; font-weight: normal; color: #31333F; }
-    </style>
-""", unsafe_allow_html=True)
-
 # 2. Conexão com Google Sheets
 @st.cache_resource
 def iniciar_conexao():
@@ -101,10 +94,9 @@ if sh:
     if realizar_login(sh):
         st.sidebar.write(f"👤 Usuário: **{st.session_state.user_nome}**")
         
-        # Botão para atualizar dados manualmente
         if st.sidebar.button("🔄 Atualizar Base de Dados"):
             st.cache_data.clear()
-            st.success("Dados recarregados!")
+            st.success("Base atualizada!")
             st.rerun()
 
         if st.sidebar.button("Sair"):
@@ -155,26 +147,22 @@ if sh:
                         if tabela.empty or not any(tabela['Descrição']): st.warning("⚠️ Adicione itens.")
                         else:
                             id_p = f"DNA-{datetime.now().strftime('%Y%m%d-%H%M')}"
+                            agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                             try:
                                 aba_pedidos = sh.worksheet("Relatorio de pedidos")
                                 for _, row in tabela.iterrows():
                                     if row['Descrição'] and str(row['Descrição']) != "None":
-                                        # --- TRATAMENTO ROBUSTO DA DATA ---
                                         d_ent = row.get('Data de entrega')
-                                        if pd.notnull(d_ent):
-                                            if hasattr(d_ent, 'strftime'): dt_str = d_ent.strftime("%d/%m/%Y")
-                                            else: dt_str = str(d_ent)
-                                        else: dt_str = ""
-
+                                        dt_s = d_ent.strftime("%d/%m/%Y") if pd.notnull(d_ent) and hasattr(d_ent, 'strftime') else ""
                                         row_cln = ["" if pd.isna(v) or str(v) == "None" else str(v) for v in row.tolist()]
                                         
                                         aba_pedidos.append_row([
                                             id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
                                             row_cln[0], row_cln[1], row_cln[2], row_cln[3], row_cln[4], row_cln[5],
                                             row_cln[6], row_cln[7], row_cln[8], row_cln[9], row_cln[10], row_cln[11],
-                                            row_cln[12], row_cln[13], row_cln[14], row_cln[15], 
-                                            dt_str, # Inserindo a data formatada corretamente aqui
-                                            in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est
+                                            row_cln[12], row_cln[13], row_cln[14], row_cln[15], dt_s, 
+                                            in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est,
+                                            agora_str, "CRIADO NOVO" # <--- NOVAS COLUNAS DE AUDITORIA
                                         ])
                                 st.success(f"✅ Pedido {id_p} cadastrado com sucesso!")
                                 st.cache_data.clear()
@@ -214,11 +202,11 @@ if sh:
                             for r in sorted(rows_indices, reverse=True): aba_p.delete_rows(r)
                             
                             novas_linhas = []
+                            agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                             for _, r in df_ed.iterrows():
                                 if r.get('Descrição') and str(r.get('Descrição')) not in ["", "None", "nan"]:
                                     d_ed = r.get('Data de entrega')
                                     dt_s = d_ed.strftime("%d/%m/%Y") if pd.notnull(d_ed) and hasattr(d_ed, 'strftime') else ""
-                                    
                                     row_vals = ["" if pd.isna(v) or str(v) in ["None", "nan"] else str(v) for v in r.tolist()]
 
                                     novas_linhas.append([
@@ -229,7 +217,8 @@ if sh:
                                         row_vals[15], dt_s, 
                                         str(orig.get('Cidade','')), str(orig.get('Estado','')), row_vals[17],
                                         str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - I.E.','')),
-                                        str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento',''))
+                                        str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento','')),
+                                        agora_str, "ATUALIZADO" # <--- MARCAÇÃO DE ATUALIZAÇÃO
                                     ])
                             aba_p.insert_rows(novas_linhas, row=posicao_inicial)
                             st.success(f"✅ Pedido {id_busca} atualizado com sucesso!")

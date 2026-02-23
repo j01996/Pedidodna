@@ -159,13 +159,17 @@ if sh:
                                 aba_pedidos = sh.worksheet("Relatorio de pedidos")
                                 for _, row in tabela.iterrows():
                                     if row['Descrição'] and str(row['Descrição']) != "None":
-                                        dt_s = row.get('Data de entrega').strftime("%d/%m/%Y") if isinstance(row.get('Data de entrega'), (date, datetime)) else ""
+                                        # --- FIX: CAPTURA E FORMATAÇÃO DA DATA DE ENTREGA ---
+                                        data_ent = row.get('Data de entrega')
+                                        dt_s = data_ent.strftime("%d/%m/%Y") if pd.notnull(data_ent) and isinstance(data_ent, (date, datetime)) else ""
+                                        
                                         row_cln = ["" if pd.isna(v) or str(v) == "None" else str(v) for v in row.tolist()]
                                         aba_pedidos.append_row([
                                             id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
                                             row_cln[0], row_cln[1], row_cln[2], row_cln[3], row_cln[4], row_cln[5],
                                             row_cln[6], row_cln[7], row_cln[8], row_cln[9], row_cln[10], row_cln[11],
-                                            row_cln[12], row_cln[13], row_cln[14], row_cln[15], dt_s, 
+                                            row_cln[12], row_cln[13], row_cln[14], row_cln[15], 
+                                            dt_s, # <--- Data de Entrega formatada
                                             in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est
                                         ])
                                 st.success(f"✅ Pedido {id_p} cadastrado com sucesso!")
@@ -208,7 +212,8 @@ if sh:
                             novas_linhas = []
                             for _, r in df_ed.iterrows():
                                 if r.get('Descrição') and str(r.get('Descrição')) not in ["", "None", "nan"]:
-                                    dt_s = r.get('Data de entrega').strftime("%d/%m/%Y") if pd.notnull(r.get('Data de entrega')) else ""
+                                    dt_ent = r.get('Data de entrega')
+                                    dt_s = dt_ent.strftime("%d/%m/%Y") if pd.notnull(dt_ent) and isinstance(dt_ent, (date, datetime)) else ""
                                     row_vals = ["" if pd.isna(v) or str(v) in ["None", "nan"] else str(v) for v in r.tolist()]
 
                                     novas_linhas.append([

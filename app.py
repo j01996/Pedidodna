@@ -20,11 +20,10 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- FUNÇÃO DE AUXÍLIO PARA LER PLANILHA SEM ERRO DE CABEÇALHO ---
+# --- FUNÇÃO DE AUXÍLIO PARA LER PLANILHA SEGURA ---
 def ler_planilha_seguro(aba):
     data = aba.get_all_values()
-    if not data:
-        return pd.DataFrame()
+    if not data: return pd.DataFrame()
     df = pd.DataFrame(data[1:], columns=data[0])
     df = df.loc[:, ~df.columns.str.contains('^$')]
     return df
@@ -80,7 +79,6 @@ def realizar_login(sh):
 # --- LISTAS DE OPÇÕES ---
 opcoes_desc = ["Matriz L600 Núcleo 100kg", "Matriz L600 Núcleo 110kg", "Matriz L600 Núcleo 20kg", "Matriz L600 Núcleo 30kg", "Matriz L600 Núcleo 40kg", "Matriz L600 Núcleo 50kg", "Matriz L600 Núcleo 60kg", "Matriz L600 Núcleo 70kg", "Matriz L600 Núcleo 80kg", "Matriz L600 Núcleo 90kg", "Matriz L241", "Matriz L241 100kg", "Matriz L241 110kg", "Matriz L241 20kg", "Matriz L241 30kg", "Matriz L241 40kg", "Matriz L241 50kg", "Matriz L241 60kg", "Matriz L241 70kg", "Matriz L241 80kg", "Matriz L241 90kg", "Matriz L241 Retenção", "Matriz Avó L400 100kg", "Matriz Avó L400 110kg", "Matriz Avó L400 20kg", "Matriz Avó L400 30kg", "Matriz Avó L400 40kg", "Matriz Avó L400 50kg", "Matriz Avó L400 60kg", "Matriz Avó L400 70kg", "Matriz Avó L400 80kg", "Matriz Avó L400 90kg", "Matriz Avó L400 Off Test", "Matriz Avó L400 Retenção", "Matriz Bisavó L400", "Matriz Bisavó L400 100kg", "Matriz Bisavó L400 110kg", "Matriz Bisavó L400 20kg", "Matriz Bisavó L400 30kg", "Matriz Bisavó L400 40kg", "Matriz Bisavó L400 50kg", "Matriz Bisavó L400 60kg", "Matriz Bisavó L400 70kg", "Matriz Bisavó L400 80kg", "Matriz Bisavó L400 90kg", "Matriz Bisavó L400 Retenção", "Matriz Avó L200", "Matriz Avó L200 100kg", "Matriz Avó L200 110kg", "Matriz Avó L200 20kg", "Matriz Avó L200 30kg", "Matriz Avó L200 40kg", "Matriz Avó L200 50kg", "Matriz Avó L200 60kg", "Matriz Avó L200 70kg", "Matriz Avó L200 80kg", "Matriz Avó L200 90kg", "Matriz Avó L200 Off Test", "Matriz Avó L200 Retenção", "Matriz Bisavó L200", "Matriz Bisavó L200 100kg", "Matriz Bisavó L200 110kg", "Matriz Bisavó L200 20kg", "Matriz Bisavó L200 30kg", "Matriz Bisavó L200 40kg", "Matriz Bisavó L200 50kg", "Matriz Bisavó L200 60kg", "Matriz Bisavó L200 70kg", "Matriz Bisavó L200 80kg", "Matriz Bisavó L200 90kg", "Matriz Bisavó L200 Retenção", "Reprodutor L600 Núcleo", "Reprodutor Terminador L600", "Reprodutor Terminador L600 Deca 1", "Reprodutor Terminador L600 Deca 2", "Reprodutor Terminador L600 Deca 3", "Reprodutor Avô L400", "Reprodutor Núcleo L400", "Reprodutor Avô L200", "Reprodutor Núcleo L200", "Reprodutor L600/USA", "Reprodutor L400/USA", "Reprodutor L200/USA", "Reprodutor Terminador Duroc Núcleo", "Reprodutor Rufiao", "Matriz L241 Prime", "Matriz L241 100kg Prime", "Matriz L241 110kg Prime", "Matriz L241 20kg Prime", "Matriz L241 30kg Prime", "Matriz L241 40kg Prime", "Matriz L241 50kg Prime", "Matriz L241 60kg Prime", "Matriz L241 70kg Prime", "Matriz L241 80kg Prime", "Matriz L241 90kg Prime"]
 opcoes_modalidade = ["VENDA DIRETA", "ALUGUEL", "RETENÇÃO F1", "RETENÇÃO AVÓ"]
-# Unificação dos Prazos
 opcoes_prazo_unificado = sorted(list(set(["Á VISTA", "10, 15", "10, 15, 30", "10, 15, 30, 45", "10, 30", "10, 30, 45", "10, 30, 45, 60", "10, 30, 45, 60, 90", "10,30, 60", "10, 30, 60, 90", "30", "15", "45", "60", "90", "30, 45, 60", "30, 45", "30, 45, 60, 75", "30, 60, 90", "30, 60", "30, 60, 90, 120", "30,60,90,120, 150", "30, 60, 90, 120, 150, 180", "30, 60, 90, 120, 150, 180, 210", "30,60,90, 120, 150, 180, 210, 240", "30,60,90, 120, 150, 180, 210, 240, 270", "30,60,90, 120, 150, 180, 210, 240, 270, 300", "30,60,90, 120, 150, 180, 210, 240, 270, 300, 330", "30,60,90, 120, 150, 180, 210, 240, 270, 300, 330, 360", "OUTRO (ESPECIFICAR NA OBSERVAÇÃO)"])))
 opcoes_indexador = ["ASEMG", "APCS", "JOX MÉDIO/SP", "ACRISMAT", "CEPEA/PR", "CEPEA/SC", "CEPEA/RS", "CEPEA/SP", "CEPEA/MG", "DFSUIN"]
 opcoes_sim_nao = ["Sim", "Não"]
@@ -92,38 +90,26 @@ column_config_padrao = {
     "Indexador": st.column_config.SelectboxColumn("Indexador", options=opcoes_indexador),
     "Cobrar Frete": st.column_config.SelectboxColumn("Cobrar Frete", options=opcoes_sim_nao),
     "Cobrar Registro Genealógico": st.column_config.SelectboxColumn("Cobrar Registro Genealógico", options=opcoes_sim_nao),
-    "Data de entrega": st.column_config.DateColumn("Data de entrega", format="DD/MM/YYYY")
+    "Data de entrega": st.column_config.DateColumn("Data de entrega", format="DD/MM/YYYY"),
+    "Programado": st.column_config.CheckboxColumn("Programado", default=False)
 }
 
 # --- PROGRAMA PRINCIPAL ---
 if sh:
     if realizar_login(sh):
         st.sidebar.write(f"👤 Usuário: **{st.session_state.user_nome}**")
-        
         if st.sidebar.button("🔄 Atualizar Base de Dados"):
             st.cache_data.clear()
-            st.success("Base atualizada!")
             st.rerun()
-
         if st.sidebar.button("Sair"):
             st.session_state.autenticado = False
             st.rerun()
 
-        @st.cache_data(ttl=600)
-        def carregar_clientes(_sh):
-            ws = _sh.worksheet("Base de clientes sap")
-            df = ler_planilha_seguro(ws)
-            df.columns = [str(col).strip() for col in df.columns]
-            return df
-
-        df_sap = carregar_clientes(sh)
+        df_sap = ler_planilha_seguro(sh.worksheet("Base de clientes sap"))
         aba = st.sidebar.radio("Navegação", ["Novo Pedido", "Gerenciar Pedido", "Histórico de Vendas"])
 
-        # --- ABA 1: NOVO PEDIDO ---
         if aba == "Novo Pedido":
             st.subheader("Novo Pedido de Venda")
-            if st.button("Limpar"): st.rerun()
-
             lista_clientes = [""] + sorted(df_sap['Razão Social'].unique().tolist())
             cliente_sel = st.selectbox("Selecione o Cliente", lista_clientes)
             
@@ -144,8 +130,7 @@ if sh:
                 with st.form("form_venda", clear_on_submit=True):
                     vendedor_final = st.text_input("Vendedor Responsável", value=st.session_state.user_nome, disabled=True)
                     data_ped = st.date_input("Data do Pedido", datetime.now())
-                    
-                    df_vazio = pd.DataFrame(columns=["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega"])
+                    df_vazio = pd.DataFrame(columns=["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado"])
                     tabela = st.data_editor(df_vazio, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
                     obs = st.text_area("Observações Adicionais")
                     
@@ -157,86 +142,69 @@ if sh:
                             try:
                                 aba_pedidos = sh.worksheet("Relatorio de pedidos")
                                 for _, row in tabela.iterrows():
-                                    if row['Descrição'] and str(row['Descrição']) != "None":
+                                    if row['Descrição']:
                                         d_ent = row.get('Data de entrega')
                                         dt_s = d_ent.strftime("%d/%m/%Y") if pd.notnull(d_ent) and hasattr(d_ent, 'strftime') else ""
-                                        row_cln = ["" if pd.isna(v) or str(v) == "None" else str(v) for v in row.tolist()]
-                                        
                                         aba_pedidos.append_row([
                                             id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
-                                            row_cln[0], row_cln[1], row_cln[2], row_cln[3], row_cln[4], row_cln[5],
-                                            row_cln[6], row_cln[7], row_cln[8], row_cln[9], row_cln[10], row_cln[11],
-                                            row_cln[12], dt_s, 
+                                            str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]), str(row[5]), str(row[6]), str(row[7]), str(row[8]), str(row[9]), str(row[10]), str(row[11]), str(row[12]), dt_s, str(row[14]),
                                             in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est,
-                                            agora_str, "CRIADO NOVO"
+                                            agora_str, "CRIADO NOVO", st.session_state.user_email
                                         ])
-                                st.success(f"✅ Pedido {id_p} cadastrado com sucesso!")
+                                st.success(f"✅ Pedido {id_p} salvo!")
                                 st.cache_data.clear()
-                            except Exception as e: st.error(f"Erro ao salvar: {e}")
-            else: st.info("Selecione um cliente para iniciar o pedido")
+                            except Exception as e: st.error(f"Erro: {e}")
 
-        # --- ABA 2: GERENCIAR PEDIDO ---
         elif aba == "Gerenciar Pedido":
             st.subheader("Gerenciar Pedido")
-            id_busca = st.text_input("Digite o ID do Pedido para buscar").strip()
+            id_busca = st.text_input("Digite o ID do Pedido").strip()
             if id_busca:
                 try:
                     aba_p = sh.worksheet("Relatorio de pedidos")
                     df_total = ler_planilha_seguro(aba_p)
-                    df_total.columns = [str(c).strip() for c in df_total.columns]
+                    ped_comp = df_total[df_total['ID Pedido'] == id_busca].copy()
                     
-                    filtro = (df_total['ID Pedido'] == id_busca)
-                    if st.session_state.user_nivel != "Admin":
-                        filtro = filtro & (df_total['Vendedor'] == st.session_state.user_nome)
-                    
-                    ped_comp = df_total[filtro].copy()
                     if not ped_comp.empty:
                         orig = ped_comp.iloc[0].to_dict()
-                        st.write(f"Pedido: {id_busca}  |  Cliente: {orig.get('Cliente')}  |  Data: {orig.get('Data')}")
-                        
-                        cols_edit = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Observação"]
+                        cols_edit = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado", "Observação"]
                         ped_filtro = ped_comp[cols_edit].copy()
-                        ped_filtro = ped_filtro.replace(["None", "nan", None], "")
                         ped_filtro['Data de entrega'] = pd.to_datetime(ped_filtro['Data de entrega'], dayfirst=True, errors='coerce')
+                        ped_filtro['Programado'] = ped_filtro['Programado'].apply(lambda x: True if str(x).upper() == "TRUE" else False)
                         
                         df_ed = st.data_editor(ped_filtro, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
                         
                         if st.button("🆙 ATUALIZAR PEDIDO"):
+                            agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                            # Lógica para detectar se houve exclusão de itens
+                            original_count = len(ped_comp)
+                            new_count = len(df_ed[df_ed['Descrição'] != ""])
+                            status_acao = "ATUALIZADO" if new_count >= original_count else "ITEM REMOVIDO"
+
                             cell_list = aba_p.findall(id_busca)
-                            rows_indices = sorted(list(set([c.row for c in cell_list])))
-                            posicao_inicial = rows_indices[0]
-                            for r in sorted(rows_indices, reverse=True): aba_p.delete_rows(r)
+                            rows_indices = sorted(list(set([c.row for c in cell_list])), reverse=True)
+                            for r in rows_indices: aba_p.delete_rows(r)
                             
                             novas_linhas = []
-                            agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                             for _, r in df_ed.iterrows():
-                                if r.get('Descrição') and str(r.get('Descrição')) not in ["", "None", "nan"]:
+                                if r.get('Descrição'):
                                     d_ed = r.get('Data de entrega')
                                     dt_s = d_ed.strftime("%d/%m/%Y") if pd.notnull(d_ed) and hasattr(d_ed, 'strftime') else ""
-                                    row_vals = ["" if pd.isna(v) or str(v) in ["None", "nan"] else str(v) for v in r.tolist()]
-
                                     novas_linhas.append([
                                         id_busca, str(orig['Cliente']), str(orig['Vendedor']), str(orig['Data']),
-                                        row_vals[0], row_vals[1], row_vals[2], row_vals[3], row_vals[4], 
-                                        row_vals[5], row_vals[6], row_vals[7], row_vals[8], row_vals[9],
-                                        row_vals[10], row_vals[11], row_vals[12], dt_s, 
-                                        str(orig.get('Cidade','')), str(orig.get('Estado','')), row_vals[14],
-                                        str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - I.E.','')),
-                                        str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento','')),
-                                        agora_str, "ATUALIZADO"
+                                        str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5]), str(r[6]), str(r[7]), str(r[8]), str(r[9]), str(r[10]), str(r[11]), str(r[12]), dt_s, str(r[14]),
+                                        str(orig.get('Cidade','')), str(orig.get('Estado','')), str(r[15]), str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - I.E.','')), str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento','')),
+                                        agora_str, status_acao, st.session_state.user_email
                                     ])
-                            aba_p.insert_rows(novas_linhas, row=posicao_inicial)
-                            st.success(f"✅ Pedido {id_busca} atualizado com sucesso!")
+                            aba_p.append_rows(novas_linhas)
+                            st.success(f"✅ Pedido {id_busca} atualizado!")
                             st.rerun()
-                    else: st.warning("Pedido não encontrado ou sem permissão.")
+                    else: st.warning("Não encontrado.")
                 except Exception as e: st.error(f"Erro: {e}")
 
-        # --- ABA 3: HISTÓRICO ---
         elif aba == "Histórico de Vendas":
             st.subheader("Meus Registros")
             try:
-                aba_p = sh.worksheet("Relatorio de pedidos")
-                df_hist = ler_planilha_seguro(aba_p)
+                df_hist = ler_planilha_seguro(sh.worksheet("Relatorio de pedidos"))
                 if st.session_state.user_nivel != "Admin":
                     df_hist = df_hist[df_hist['Vendedor'] == st.session_state.user_nome]
                 st.dataframe(df_hist, use_container_width=True)

@@ -6,13 +6,6 @@ from datetime import datetime, date
 # 1. Configuração da Página
 st.set_page_config(page_title="DNA South America - Gestão de Pedidos", layout="wide")
 
-# --- ESTILO ---
-st.markdown("""
-    <style>
-    .vendedor-header { font-size: 18px; font-weight: normal; color: #31333F; }
-    </style>
-""", unsafe_allow_html=True)
-
 # 2. Conexão com Google Sheets
 @st.cache_resource
 def iniciar_conexao():
@@ -27,22 +20,24 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- FUNÇÃO DE AUXÍLIO PARA LER PLANILHA ---
+# --- FUNÇÃO DE AUXÍLIO PARA LER PLANILHA SEGURA ---
 def ler_planilha_seguro(aba):
-    data = aba.get_all_values()
-    if not data: return pd.DataFrame()
-    df = pd.DataFrame(data[1:], columns=data[0])
-    return df
+    try:
+        data = aba.get_all_values()
+        if not data: return pd.DataFrame()
+        df = pd.DataFrame(data[1:], columns=data[0])
+        df = df.loc[:, ~df.columns.str.contains('^$')]
+        return df
+    except:
+        return pd.DataFrame()
 
-# --- FUNÇÃO DE LOGIN E REGISTRO ---
+# --- FUNÇÃO DE LOGIN ---
 def realizar_login(sh):
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
-
     if not st.session_state.autenticado:
         st.title("DNA South America - Pedidos de Animais")
         aba_login, aba_registro = st.tabs(["Acessar Conta", "Criar Nova Conta"])
-
         with aba_login:
             with st.form("form_login"):
                 email_input = st.text_input("E-mail").strip().lower()
@@ -50,9 +45,9 @@ def realizar_login(sh):
                 if st.form_submit_button("Entrar"):
                     try:
                         aba_users = sh.worksheet("Usuarios")
-                        df_users = pd.DataFrame(aba_users.get_all_records())
+                        df_users = ler_planilha_seguro(aba_users)
                         df_users.columns = [str(c).strip().lower() for c in df_users.columns]
-                        col_email = next((c for c in df_users.columns if 'mail' in c), None)
+                        col_email = next((c for c in df_users.columns if 'mail' in c or 'email' in c), None)
                         user_match = df_users[(df_users[col_email].str.lower() == email_input) & (df_users['senha'].astype(str) == senha_input)]
                         if not user_match.empty:
                             st.session_state.autenticado = True
@@ -62,7 +57,6 @@ def realizar_login(sh):
                             st.rerun()
                         else: st.error("🚫 E-mail ou senha incorretos.")
                     except Exception as e: st.error(f"Erro ao acessar base: {e}")
-
         with aba_registro:
             st.subheader("📝 Cadastre seu usuário")
             with st.form("form_registro"):
@@ -100,40 +94,26 @@ column_config_padrao = {
     "Programado": st.column_config.CheckboxColumn("Programado", default=False)
 }
 
-# --- PROGRAMA PRINCIPAL ---
 if sh:
     if realizar_login(sh):
-        st.sidebar.write(f"👤 Usuário: **{st.session_state.user_nome}**")
-        
-        if st.sidebar.button("🔄 Atualizar Base de Dados"):
+        st.sidebar.write(f"👤 **{st.session_state.user_nome}** ({st.session_state.user_nivel})")
+        if st.sidebar.button("🔄 Atualizar Base"):
             st.cache_data.clear()
             st.rerun()
-
         if st.sidebar.button("Sair"):
             st.session_state.autenticado = False
             st.rerun()
 
-        @st.cache_data(ttl=600)
-        def carregar_clientes(_sh):
-            ws = _sh.worksheet("Base de clientes sap")
-            df = ler_planilha_seguro(ws)
-            df.columns = [str(col).strip() for col in df.columns]
-            return df
-
-        df_sap = carregar_clientes(sh)
+        df_sap = ler_planilha_seguro(sh.worksheet("Base de clientes sap"))
         aba = st.sidebar.radio("Navegação", ["Novo Pedido", "Gerenciar Pedido", "Histórico de Vendas"])
 
-        # --- ABA 1: NOVO PEDIDO ---
         if aba == "Novo Pedido":
             st.subheader("Novo Pedido de Venda")
-            if st.button("Limpar"): st.rerun()
-
             lista_clientes = [""] + sorted(df_sap['Razão Social'].unique().tolist())
             cliente_sel = st.selectbox("Selecione o Cliente", lista_clientes)
-            
             if cliente_sel != "":
                 dados_cli = df_sap[df_sap['Razão Social'] == cliente_sel].iloc[0]
-                with st.expander("📄 Detalhes do Cliente (Editáveis)", expanded=True):
+                with st.expander("📄 Detalhes do Cliente", expanded=True):
                     c1, c2, c3 = st.columns(3)
                     with c1:
                         in_cnpj = st.text_input("CNPJ/CPF", value=str(dados_cli.get('CPF_CNPJ', '')))
@@ -146,10 +126,9 @@ if sh:
                         in_gta_est = st.text_input("GTA - Estabelecimento", value=str(dados_cli.get('GTA - Estabelecimento', '')))
 
                 with st.form("form_venda", clear_on_submit=True):
-                    vendedor_final = st.text_input("Vendedor Responsável", value=st.session_state.user_nome, disabled=True)
                     data_ped = st.date_input("Data do Pedido", datetime.now())
-                    
-                    df_vazio = pd.DataFrame(columns=["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado"])
+                    cols_app = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado"]
+                    df_vazio = pd.DataFrame(columns=cols_app)
                     tabela = st.data_editor(df_vazio, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
                     obs = st.text_area("Observações Adicionais")
                     
@@ -164,33 +143,27 @@ if sh:
                                     if row['Descrição']:
                                         d_ent = row.get('Data de entrega')
                                         dt_s = d_ent.strftime("%d/%m/%Y") if pd.notnull(d_ent) and hasattr(d_ent, 'strftime') else ""
-                                        
                                         aba_pedidos.append_row([
                                             id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
                                             str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]), str(row[5]), str(row[6]), str(row[7]), str(row[8]), str(row[9]), str(row[10]), str(row[11]), str(row[12]), dt_s, 
                                             in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est,
                                             str(row[14]), agora_str, "CRIADO NOVO", st.session_state.user_email
                                         ])
-                                st.success(f"✅ Pedido {id_p} cadastrado com sucesso!")
+                                st.success(f"✅ Pedido {id_p} salvo!")
                                 st.cache_data.clear()
                             except Exception as e: st.error(f"Erro ao salvar: {e}")
-            else: st.info("Selecione um cliente para iniciar o pedido")
 
-        # --- ABA 2: GERENCIAR PEDIDO ---
         elif aba == "Gerenciar Pedido":
             st.subheader("Gerenciar Pedido")
-            id_busca = st.text_input("Digite o ID do Pedido para buscar").strip()
+            id_busca = st.text_input("Digite o ID do Pedido").strip()
             if id_busca:
                 try:
                     aba_p = sh.worksheet("Relatorio de pedidos")
                     df_total = ler_planilha_seguro(aba_p)
                     ped_comp = df_total[df_total['ID Pedido'] == id_busca].copy()
-                    
                     if not ped_comp.empty:
                         orig = ped_comp.iloc[0].to_dict()
-                        # Garante coluna programado no DF
-                        if 'Programado' not in ped_comp.columns: ped_comp['Programado'] = False
-
+                        if 'Programado' not in ped_comp.columns: ped_comp['Programado'] = 'FALSE'
                         cols_edit = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado", "Observação"]
                         ped_filtro = ped_comp[cols_edit].copy()
                         ped_filtro['Data de entrega'] = pd.to_datetime(ped_filtro['Data de entrega'], dayfirst=True, errors='coerce')
@@ -200,25 +173,36 @@ if sh:
                         
                         if st.button("🆙 ATUALIZAR PEDIDO"):
                             agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                            
-                            # Auditoria para Programados
                             foi_programado = any(ped_comp['Programado'].astype(str).str.upper() == "TRUE")
+                            
                             if foi_programado:
-                                try:
-                                    aba_log = sh.worksheet("Log_Alteracoes")
-                                    aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, "Alteração em Pedido Programado"])
-                                except: pass
+                                aba_log = sh.worksheet("Log_Alteracoes")
+                                # 1. Detectar Exclusões
+                                desc_originais = ped_filtro['Descrição'].tolist()
+                                desc_novos = df_ed['Descrição'].tolist()
+                                for d in desc_originais:
+                                    if d not in desc_novos:
+                                        aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ITEM EXCLUÍDO: {d}"])
+                                # 2. Detectar Alterações em colunas
+                                for idx, row_new in df_ed.iterrows():
+                                    if idx < len(ped_filtro):
+                                        row_old = ped_filtro.iloc[idx]
+                                        for col in cols_edit:
+                                            val_old = str(row_old[col])
+                                            val_new = str(row_new[col])
+                                            if val_old != val_new and val_new != "NaT":
+                                                aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"Alterou {col} de '{val_old}' para '{val_new}'"])
+                                    else:
+                                        aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ADICIONOU NOVO ITEM: {row_new['Descrição']}"])
 
                             cell_list = aba_p.findall(id_busca)
-                            rows_indices = sorted(list(set([c.row for c in cell_list])), reverse=True)
-                            for r in rows_indices: aba_p.delete_rows(r)
+                            for r in sorted(list(set([c.row for c in cell_list])), reverse=True): aba_p.delete_rows(r)
                             
                             novas_linhas = []
                             for _, r in df_ed.iterrows():
                                 if r.get('Descrição'):
                                     d_ed = r.get('Data de entrega')
                                     dt_s = d_ed.strftime("%d/%m/%Y") if pd.notnull(d_ed) and hasattr(d_ed, 'strftime') else ""
-                                    
                                     novas_linhas.append([
                                         id_busca, str(orig['Cliente']), str(orig['Vendedor']), str(orig['Data']),
                                         str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5]), str(r[6]), str(r[7]), str(r[8]), str(r[9]), str(r[10]), str(r[11]), str(r[12]), dt_s, 
@@ -232,21 +216,19 @@ if sh:
                     else: st.warning("Não encontrado.")
                 except Exception as e: st.error(f"Erro: {e}")
 
-        # --- ABA 3: HISTÓRICO ---
         elif aba == "Histórico de Vendas":
             st.subheader("Meus Registros")
             try:
-                aba_p = sh.worksheet("Relatorio de pedidos")
-                df_hist = ler_planilha_seguro(aba_p)
+                df_hist = ler_planilha_seguro(sh.worksheet("Relatorio de pedidos"))
                 if st.session_state.user_nivel != "Admin":
                     df_hist = df_hist[df_hist['Vendedor'] == st.session_state.user_nome]
                 st.dataframe(df_hist, use_container_width=True)
 
                 if st.session_state.user_nivel == "Admin":
                     st.markdown("---")
-                    st.subheader("🛡️ Log de Alterações (Pedidos Programados)")
+                    st.subheader("🛡️ Log Detalhado de Alterações (Pedidos Programados)")
                     try:
                         df_log = ler_planilha_seguro(sh.worksheet("Log_Alteracoes"))
-                        st.table(df_log.tail(15))
-                    except: st.info("Aba Log_Alteracoes não encontrada.")
+                        st.table(df_log.tail(20))
+                    except: st.info("Crie a aba 'Log_Alteracoes' para ver os detalhes.")
             except Exception as e: st.error(f"Erro: {e}")

@@ -32,11 +32,9 @@ def ler_planilha_seguro(aba):
 def realizar_login(sh):
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
-
     if not st.session_state.autenticado:
         st.title("DNA South America - Pedidos de Animais")
         aba_login, aba_registro = st.tabs(["Acessar Conta", "Criar Nova Conta"])
-
         with aba_login:
             with st.form("form_login"):
                 email_input = st.text_input("E-mail").strip().lower()
@@ -56,7 +54,6 @@ def realizar_login(sh):
                             st.rerun()
                         else: st.error("🚫 E-mail ou senha incorretos.")
                     except Exception as e: st.error(f"Erro ao acessar base: {e}")
-
         with aba_registro:
             st.subheader("📝 Cadastre seu usuário")
             with st.form("form_registro"):
@@ -115,7 +112,7 @@ if sh:
             
             if cliente_sel != "":
                 dados_cli = df_sap[df_sap['Razão Social'] == cliente_sel].iloc[0]
-                with st.expander("📄 Detalhes do Cliente (Editáveis)", expanded=True):
+                with st.expander("📄 Detalhes do Cliente", expanded=True):
                     c1, c2, c3 = st.columns(3)
                     with c1:
                         in_cnpj = st.text_input("CNPJ/CPF", value=str(dados_cli.get('CPF_CNPJ', '')))
@@ -130,6 +127,8 @@ if sh:
                 with st.form("form_venda", clear_on_submit=True):
                     vendedor_final = st.text_input("Vendedor Responsável", value=st.session_state.user_nome, disabled=True)
                     data_ped = st.date_input("Data do Pedido", datetime.now())
+                    
+                    # Tabela conforme a necessidade do APP (Linhagem e USD removidos da interface)
                     df_vazio = pd.DataFrame(columns=["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado"])
                     tabela = st.data_editor(df_vazio, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
                     obs = st.text_area("Observações Adicionais")
@@ -145,15 +144,39 @@ if sh:
                                     if row['Descrição']:
                                         d_ent = row.get('Data de entrega')
                                         dt_s = d_ent.strftime("%d/%m/%Y") if pd.notnull(d_ent) and hasattr(d_ent, 'strftime') else ""
+                                        
+                                        # MONTAGEM EXATA CONFORME SEQUÊNCIA A até AC
                                         aba_pedidos.append_row([
-                                            id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
-                                            str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]), str(row[5]), str(row[6]), str(row[7]), str(row[8]), str(row[9]), str(row[10]), str(row[11]), str(row[12]), dt_s, str(row[14]),
-                                            in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est,
-                                            agora_str, "CRIADO NOVO", st.session_state.user_email
+                                            id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"), # A, B, C, D
+                                            str(row[0]), # E: Descrição
+                                            str(row[1]), # F: Modalidade
+                                            str(row[2]), # G: Quantidade
+                                            str(row[3]), # H: KG Total
+                                            str(row[4]), # I: Preço Unitário
+                                            str(row[5]), # J: Prêmio Genético
+                                            str(row[6]), # K: Prazo de Pagamento
+                                            str(row[7]), # L: Pagamento Fêmea KG
+                                            str(row[8]), # M: Pagamento Fêmea R$
+                                            str(row[9]), # N: Aluguel
+                                            str(row[10]),# O: Indexador
+                                            str(row[11]),# P: Cobrar Frete
+                                            str(row[12]),# Q: Cobrar Registro
+                                            dt_s,        # R: Data de entrega
+                                            in_cid,      # S: Cidade
+                                            in_est,      # T: Estado
+                                            obs,         # U: Observação
+                                            in_cnpj,     # V: GTA CNPJ
+                                            in_ie,       # W: GTA IE
+                                            in_gta_cod,  # X: GTA Código
+                                            in_gta_est,  # Y: GTA Estabelecimento
+                                            str(row[14]),# Z: Programado
+                                            agora_str,   # AA: Ultima Modificacao
+                                            "CRIADO NOVO",# AB: Status Registro
+                                            st.session_state.user_email # AC: Alterado por
                                         ])
                                 st.success(f"✅ Pedido {id_p} salvo!")
                                 st.cache_data.clear()
-                            except Exception as e: st.error(f"Erro: {e}")
+                            except Exception as e: st.error(f"Erro ao salvar: {e}")
 
         elif aba == "Gerenciar Pedido":
             st.subheader("Gerenciar Pedido")
@@ -166,7 +189,9 @@ if sh:
                     
                     if not ped_comp.empty:
                         orig = ped_comp.iloc[0].to_dict()
+                        # Colunas que o usuário edita no APP
                         cols_edit = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado", "Observação"]
+                        
                         ped_filtro = ped_comp[cols_edit].copy()
                         ped_filtro['Data de entrega'] = pd.to_datetime(ped_filtro['Data de entrega'], dayfirst=True, errors='coerce')
                         ped_filtro['Programado'] = ped_filtro['Programado'].apply(lambda x: True if str(x).upper() == "TRUE" else False)
@@ -175,11 +200,6 @@ if sh:
                         
                         if st.button("🆙 ATUALIZAR PEDIDO"):
                             agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                            # Lógica para detectar se houve exclusão de itens
-                            original_count = len(ped_comp)
-                            new_count = len(df_ed[df_ed['Descrição'] != ""])
-                            status_acao = "ATUALIZADO" if new_count >= original_count else "ITEM REMOVIDO"
-
                             cell_list = aba_p.findall(id_busca)
                             rows_indices = sorted(list(set([c.row for c in cell_list])), reverse=True)
                             for r in rows_indices: aba_p.delete_rows(r)
@@ -189,11 +209,13 @@ if sh:
                                 if r.get('Descrição'):
                                     d_ed = r.get('Data de entrega')
                                     dt_s = d_ed.strftime("%d/%m/%Y") if pd.notnull(d_ed) and hasattr(d_ed, 'strftime') else ""
+                                    
                                     novas_linhas.append([
                                         id_busca, str(orig['Cliente']), str(orig['Vendedor']), str(orig['Data']),
-                                        str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5]), str(r[6]), str(r[7]), str(r[8]), str(r[9]), str(r[10]), str(r[11]), str(r[12]), dt_s, str(r[14]),
-                                        str(orig.get('Cidade','')), str(orig.get('Estado','')), str(r[15]), str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - I.E.','')), str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento','')),
-                                        agora_str, status_acao, st.session_state.user_email
+                                        str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5]), str(r[6]), str(r[7]), str(r[8]), str(r[9]), str(r[10]), str(r[11]), str(r[12]), dt_s, 
+                                        str(orig.get('Cidade','')), str(orig.get('Estado','')), str(r[15]),
+                                        str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - IE','')), str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento','')),
+                                        str(r[14]), agora_str, "ATUALIZADO", st.session_state.user_email
                                     ])
                             aba_p.append_rows(novas_linhas)
                             st.success(f"✅ Pedido {id_busca} atualizado!")

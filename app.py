@@ -76,25 +76,21 @@ def realizar_login(sh):
         return False
     return True
 
-# --- LISTAS DE OPÇÕES ---
+# --- LISTAS E CONFIGURAÇÕES ---
 opcoes_desc = ["Matriz L600 Núcleo 100kg", "Matriz L600 Núcleo 110kg", "Matriz L600 Núcleo 20kg", "Matriz L600 Núcleo 30kg", "Matriz L600 Núcleo 40kg", "Matriz L600 Núcleo 50kg", "Matriz L600 Núcleo 60kg", "Matriz L600 Núcleo 70kg", "Matriz L600 Núcleo 80kg", "Matriz L600 Núcleo 90kg", "Matriz L241", "Matriz L241 100kg", "Matriz L241 110kg", "Matriz L241 20kg", "Matriz L241 30kg", "Matriz L241 40kg", "Matriz L241 50kg", "Matriz L241 60kg", "Matriz L241 70kg", "Matriz L241 80kg", "Matriz L241 90kg", "Matriz L241 Retenção", "Matriz Avó L400 100kg", "Matriz Avó L400 110kg", "Matriz Avó L400 20kg", "Matriz Avó L400 30kg", "Matriz Avó L400 40kg", "Matriz Avó L400 50kg", "Matriz Avó L400 60kg", "Matriz Avó L400 70kg", "Matriz Avó L400 80kg", "Matriz Avó L400 90kg", "Matriz Avó L400 Off Test", "Matriz Avó L400 Retenção", "Matriz Bisavó L400", "Matriz Bisavó L400 100kg", "Matriz Bisavó L400 110kg", "Matriz Bisavó L400 20kg", "Matriz Bisavó L400 30kg", "Matriz Bisavó L400 40kg", "Matriz Bisavó L400 50kg", "Matriz Bisavó L400 60kg", "Matriz Bisavó L400 70kg", "Matriz Bisavó L400 80kg", "Matriz Bisavó L400 90kg", "Matriz Bisavó L400 Retenção", "Matriz Avó L200", "Matriz Avó L200 100kg", "Matriz Avó L200 110kg", "Matriz Avó L200 20kg", "Matriz Avó L200 30kg", "Matriz Avó L200 40kg", "Matriz Avó L200 50kg", "Matriz Avó L200 60kg", "Matriz Avó L200 70kg", "Matriz Avó L200 80kg", "Matriz Avó L200 90kg", "Matriz Avó L200 Off Test", "Matriz Avó L200 Retenção", "Matriz Bisavó L200", "Matriz Bisavó L200 100kg", "Matriz Bisavó L200 110kg", "Matriz Bisavó L200 20kg", "Matriz Bisavó L200 30kg", "Matriz Bisavó L200 40kg", "Matriz Bisavó L200 50kg", "Matriz Bisavó L200 60kg", "Matriz Bisavó L200 70kg", "Matriz Bisavó L200 80kg", "Matriz Bisavó L200 90kg", "Matriz Bisavó L200 Retenção", "Reprodutor L600 Núcleo", "Reprodutor Terminador L600", "Reprodutor Terminador L600 Deca 1", "Reprodutor Terminador L600 Deca 2", "Reprodutor Terminador L600 Deca 3", "Reprodutor Avô L400", "Reprodutor Núcleo L400", "Reprodutor Avô L200", "Reprodutor Núcleo L200", "Reprodutor L600/USA", "Reprodutor L400/USA", "Reprodutor L200/USA", "Reprodutor Terminador Duroc Núcleo", "Reprodutor Rufiao", "Matriz L241 Prime", "Matriz L241 100kg Prime", "Matriz L241 110kg Prime", "Matriz L241 20kg Prime", "Matriz L241 30kg Prime", "Matriz L241 40kg Prime", "Matriz L241 50kg Prime", "Matriz L241 60kg Prime", "Matriz L241 70kg Prime", "Matriz L241 80kg Prime", "Matriz L241 90kg Prime"]
-opcoes_modalidade = ["VENDA DIRETA", "ALUGUEL", "RETENÇÃO F1", "RETENÇÃO AVÓ"]
 opcoes_prazo_unificado = sorted(list(set(["Á VISTA", "10, 15", "10, 15, 30", "10, 15, 30, 45", "10, 30", "10, 30, 45", "10, 30, 45, 60", "10, 30, 45, 60, 90", "10,30, 60", "10, 30, 60, 90", "30", "15", "45", "60", "90", "30, 45, 60", "30, 45", "30, 45, 60, 75", "30, 60, 90", "30, 60", "30, 60, 90, 120", "30,60,90,120, 150", "30, 60, 90, 120, 150, 180", "30, 60, 90, 120, 150, 180, 210", "30,60,90, 120, 150, 180, 210, 240", "30,60,90, 120, 150, 180, 210, 240, 270", "30,60,90, 120, 150, 180, 210, 240, 270, 300", "30,60,90, 120, 150, 180, 210, 240, 270, 300, 330", "30,60,90, 120, 150, 180, 210, 240, 270, 300, 330, 360", "OUTRO (ESPECIFICAR NA OBSERVAÇÃO)"])))
-opcoes_indexador = ["ASEMG", "APCS", "JOX MÉDIO/SP", "ACRISMAT", "CEPEA/PR", "CEPEA/SC", "CEPEA/RS", "CEPEA/SP", "CEPEA/MG", "DFSUIN"]
-opcoes_sim_nao = ["Sim", "Não"]
 
 column_config_padrao = {
     "Descrição": st.column_config.SelectboxColumn("Descrição", options=opcoes_desc, required=True),
-    "Modalidade": st.column_config.SelectboxColumn("Modalidade", options=opcoes_modalidade),
+    "Modalidade": st.column_config.SelectboxColumn("Modalidade", options=["VENDA DIRETA", "ALUGUEL", "RETENÇÃO F1", "RETENÇÃO AVÓ"]),
     "Prazo de Pagamento": st.column_config.SelectboxColumn("Prazo de Pagamento", options=opcoes_prazo_unificado),
-    "Indexador": st.column_config.SelectboxColumn("Indexador", options=opcoes_indexador),
-    "Cobrar Frete": st.column_config.SelectboxColumn("Cobrar Frete", options=opcoes_sim_nao),
-    "Cobrar Registro Genealógico": st.column_config.SelectboxColumn("Cobrar Registro Genealógico", options=opcoes_sim_nao),
+    "Indexador": st.column_config.SelectboxColumn("Indexador", options=["ASEMG", "APCS", "JOX MÉDIO/SP", "ACRISMAT", "CEPEA/PR", "CEPEA/SC", "CEPEA/RS", "CEPEA/SP", "CEPEA/MG", "DFSUIN"]),
+    "Cobrar Frete": st.column_config.SelectboxColumn("Cobrar Frete", options=["Sim", "Não"]),
+    "Cobrar Registro Genealógico": st.column_config.SelectboxColumn("Cobrar Registro Genealógico", options=["Sim", "Não"]),
     "Data de entrega": st.column_config.DateColumn("Data de entrega", format="DD/MM/YYYY"),
     "Programado": st.column_config.CheckboxColumn("Programado", default=False)
 }
 
-# --- PROGRAMA PRINCIPAL ---
 if sh:
     if realizar_login(sh):
         st.sidebar.write(f"👤 **{st.session_state.user_nome}** ({st.session_state.user_nivel})")
@@ -105,10 +101,10 @@ if sh:
             st.session_state.autenticado = False
             st.rerun()
 
-        df_sap = ler_planilha_seguro(sh.worksheet("Base de clientes sap"))
         aba = st.sidebar.radio("Navegação", ["Novo Pedido", "Gerenciar Pedido", "Histórico de Vendas"])
 
         if aba == "Novo Pedido":
+            df_sap = ler_planilha_seguro(sh.worksheet("Base de clientes sap"))
             st.subheader("Novo Pedido de Venda")
             lista_clientes = [""] + sorted(df_sap['Razão Social'].unique().tolist())
             cliente_sel = st.selectbox("Selecione o Cliente", lista_clientes)
@@ -129,97 +125,70 @@ if sh:
                 with st.form("form_venda", clear_on_submit=True):
                     data_ped = st.date_input("Data do Pedido", datetime.now())
                     cols_app = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado"]
-                    df_vazio = pd.DataFrame(columns=cols_app)
-                    tabela = st.data_editor(df_vazio, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
+                    tabela = st.data_editor(pd.DataFrame(columns=cols_app), num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
                     obs = st.text_area("Observações Adicionais")
                     
                     if st.form_submit_button("💾 SALVAR NOVO PEDIDO"):
-                        if tabela.empty or not any(tabela['Descrição']): st.warning("⚠️ Adicione itens.")
+                        if tabela.empty or not any(tabela['Descrição']): st.warning("Adicione itens.")
                         else:
                             id_p = f"DNA-{datetime.now().strftime('%Y%m%d-%H%M')}"
                             agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                            try:
-                                aba_pedidos = sh.worksheet("Relatorio de pedidos")
-                                for _, row in tabela.iterrows():
-                                    if row['Descrição']:
-                                        d_ent = row.get('Data de entrega')
-                                        dt_s = d_ent.strftime("%d/%m/%Y") if pd.notnull(d_ent) and hasattr(d_ent, 'strftime') else ""
-                                        aba_pedidos.append_row([
-                                            id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
-                                            str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]), str(row[5]), str(row[6]), str(row[7]), str(row[8]), str(row[9]), str(row[10]), str(row[11]), str(row[12]), dt_s, 
-                                            in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est,
-                                            str(row[14]), agora_str, "CRIADO NOVO", st.session_state.user_email
-                                        ])
-                                st.success(f"✅ Pedido {id_p} salvo!")
-                                st.cache_data.clear()
-                            except Exception as e: st.error(f"Erro: {e}")
+                            aba_pedidos = sh.worksheet("Relatorio de pedidos")
+                            for _, row in tabela.iterrows():
+                                if row['Descrição']:
+                                    d_ent = row.get('Data de entrega')
+                                    dt_s = d_ent.strftime("%d/%m/%Y") if pd.notnull(d_ent) and hasattr(d_ent, 'strftime') else ""
+                                    aba_pedidos.append_row([
+                                        id_p, str(cliente_sel), st.session_state.user_nome, data_ped.strftime("%d/%m/%Y"),
+                                        str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4]), str(row[5]), str(row[6]), str(row[7]), str(row[8]), str(row[9]), str(row[10]), str(row[11]), str(row[12]), dt_s, 
+                                        in_cid, in_est, obs, in_cnpj, in_ie, in_gta_cod, in_gta_est,
+                                        str(row[14]), agora_str, "CRIADO NOVO", st.session_state.user_email
+                                    ])
+                            st.success(f"✅ Pedido {id_p} salvo!")
 
         elif aba == "Gerenciar Pedido":
             st.subheader("Gerenciar Pedido")
             id_busca = st.text_input("Digite o ID do Pedido").strip()
             if id_busca:
-                try:
-                    aba_p = sh.worksheet("Relatorio de pedidos")
-                    df_total = ler_planilha_seguro(aba_p)
-                    ped_comp = df_total[df_total['ID Pedido'] == id_busca].copy()
-                    if not ped_comp.empty:
-                        orig = ped_comp.iloc[0].to_dict()
-                        if 'Programado' not in ped_comp.columns: ped_comp['Programado'] = 'FALSE'
-                        
-                        cols_edit = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado", "Observação"]
-                        ped_filtro = ped_comp[cols_edit].copy()
-                        ped_filtro['Data de entrega'] = pd.to_datetime(ped_filtro['Data de entrega'], dayfirst=True, errors='coerce')
-                        ped_filtro['Programado'] = ped_filtro['Programado'].apply(lambda x: True if str(x).upper() == "TRUE" else False)
-                        
-                        df_ed = st.data_editor(ped_filtro, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
-                        
-                        if st.button("🆙 ATUALIZAR PEDIDO"):
-                            agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                            foi_programado = any(ped_comp['Programado'].astype(str).str.upper() == "TRUE")
-                            
-                            if foi_programado:
-                                try:
-                                    aba_log = sh.worksheet("Log_Alteracoes")
-                                    # 1. Detectar Exclusões
-                                    itens_antes = ped_filtro['Descrição'].tolist()
-                                    itens_depois = df_ed['Descrição'].dropna().tolist()
-                                    for it in itens_antes:
-                                        if it not in itens_depois:
-                                            aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ITEM EXCLUÍDO: {it}"])
-                                    
-                                    # 2. Detectar Alterações e Adições
-                                    for idx, row_new in df_ed.iterrows():
-                                        if idx < len(ped_filtro): # Linha que já existia
-                                            row_old = ped_filtro.iloc[idx]
-                                            for c in cols_edit:
-                                                v_old = str(row_old[c])
-                                                v_new = str(row_new[c])
-                                                if v_old != v_new and v_new != "NaT" and v_new != "None":
-                                                    aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"Linha {idx+1}: Alterou {c} de '{v_old}' para '{v_new}'"])
-                                        elif row_new['Descrição']: # Linha nova adicionada
-                                            aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ADICIONOU ITEM: {row_new['Descrição']}"])
-                                except: pass
+                aba_p = sh.worksheet("Relatorio de pedidos")
+                df_total = ler_planilha_seguro(aba_p)
+                ped_comp = df_total[df_total['ID Pedido'] == id_busca].copy()
+                if not ped_comp.empty:
+                    orig = ped_comp.iloc[0].to_dict()
+                    cols_edit = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado", "Observação"]
+                    ped_filtro = ped_comp[cols_edit].copy()
+                    ped_filtro['Data de entrega'] = pd.to_datetime(ped_filtro['Data de entrega'], dayfirst=True, errors='coerce')
+                    ped_filtro['Programado'] = ped_filtro['Programado'].apply(lambda x: True if str(x).upper() == "TRUE" else False)
+                    df_ed = st.data_editor(ped_filtro, num_rows="dynamic", use_container_width=True, column_config=column_config_padrao, hide_index=True)
+                    
+                    if st.button("🆙 ATUALIZAR PEDIDO"):
+                        agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                        foi_programado = any(ped_comp['Programado'].astype(str).str.upper() == "TRUE")
+                        if foi_programado:
+                            aba_log = sh.worksheet("Log_Alteracoes")
+                            antes = ped_filtro['Descrição'].tolist()
+                            depois = df_ed['Descrição'].dropna().tolist()
+                            for it in antes:
+                                if it not in depois: aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ITEM EXCLUÍDO: {it}"])
+                            for idx, r_new in df_ed.iterrows():
+                                if idx < len(ped_filtro):
+                                    r_old = ped_filtro.iloc[idx]
+                                    for c in cols_edit:
+                                        v_o, v_n = str(r_old[c]), str(r_new[c])
+                                        if v_o != v_n and v_n not in ["NaT", "None"]:
+                                            aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"Linha {idx+1}: Alterou {c} de '{v_o}' para '{v_n}'"])
+                                elif r_new['Descrição']:
+                                    aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ADICIONOU ITEM: {r_new['Descrição']}"])
 
-                            cell_list = aba_p.findall(id_busca)
-                            for r in sorted(list(set([c.row for c in cell_list])), reverse=True): aba_p.delete_rows(r)
-                            
-                            novas_linhas = []
-                            for _, r in df_ed.iterrows():
-                                if r.get('Descrição'):
-                                    d_ed = r.get('Data de entrega')
-                                    dt_s = d_ed.strftime("%d/%m/%Y") if pd.notnull(d_ed) and hasattr(d_ed, 'strftime') else ""
-                                    novas_linhas.append([
-                                        id_busca, str(orig['Cliente']), str(orig['Vendedor']), str(orig['Data']),
-                                        str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5]), str(r[6]), str(r[7]), str(r[8]), str(r[9]), str(r[10]), str(r[11]), str(r[12]), dt_s, 
-                                        str(orig.get('Cidade','')), str(orig.get('Estado','')), str(r[15]),
-                                        str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - IE','')), str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento','')),
-                                        str(r[14]), agora_str, "ATUALIZADO", st.session_state.user_email
-                                    ])
-                            aba_p.append_rows(novas_linhas)
-                            st.success(f"✅ Pedido {id_busca} atualizado!")
-                            st.rerun()
-                    else: st.warning("Não encontrado.")
-                except Exception as e: st.error(f"Erro: {e}")
+                        for r in sorted(list(set([c.row for c in aba_p.findall(id_busca)])), reverse=True): aba_p.delete_rows(r)
+                        novas = []
+                        for _, r in df_ed.iterrows():
+                            if r.get('Descrição'):
+                                dt_s = r.get('Data de entrega').strftime("%d/%m/%Y") if pd.notnull(r.get('Data de entrega')) and hasattr(r.get('Data de entrega'), 'strftime') else ""
+                                novas.append([id_busca, str(orig['Cliente']), str(orig['Vendedor']), str(orig['Data']), str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5]), str(r[6]), str(r[7]), str(r[8]), str(r[9]), str(r[10]), str(r[11]), str(r[12]), dt_s, str(orig.get('Cidade','')), str(orig.get('Estado','')), str(r[15]), str(orig.get('GTA - CPF/CNPJ','')), str(orig.get('GTA - IE','')), str(orig.get('GTA - Código do estabelecimento','')), str(orig.get('GTA - Estabelecimento','')), str(r[14]), agora_str, "ATUALIZADO", st.session_state.user_email])
+                        aba_p.append_rows(novas)
+                        st.success("✅ Atualizado!")
+                        st.rerun()
 
         elif aba == "Histórico de Vendas":
             st.subheader("Meus Registros")
@@ -232,8 +201,14 @@ if sh:
                 if st.session_state.user_nivel == "Admin":
                     st.markdown("---")
                     st.subheader("🛡️ Log Detalhado de Alterações")
-                    try:
-                        df_log = ler_planilha_seguro(sh.worksheet("Log_Alteracoes"))
-                        st.table(df_log.tail(30))
-                    except: st.info("Crie a aba 'Log_Alteracoes' para ver os detalhes.")
+                    aba_log = sh.worksheet("Log_Alteracoes")
+                    df_log = ler_planilha_seguro(aba_log)
+                    st.table(df_log.tail(30))
+                    
+                    if st.button("🗑️ Limpar Todo o Log de Alterações"):
+                        # Mantém apenas o cabeçalho
+                        aba_log.clear()
+                        aba_log.append_row(["Data/Hora", "ID Pedido", "Usuário", "Ação Realizada"])
+                        st.success("Logs excluídos com sucesso!")
+                        st.rerun()
             except Exception as e: st.error(f"Erro: {e}")

@@ -31,7 +31,7 @@ def ler_planilha_seguro(aba):
     except:
         return pd.DataFrame()
 
-# --- FUNÇÃO DE LOGIN ---
+# --- FUNÇÃO DE LOGIN E REGISTRO ---
 def realizar_login(sh):
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
@@ -94,6 +94,7 @@ column_config_padrao = {
     "Programado": st.column_config.CheckboxColumn("Programado", default=False)
 }
 
+# --- PROGRAMA PRINCIPAL ---
 if sh:
     if realizar_login(sh):
         st.sidebar.write(f"👤 **{st.session_state.user_nome}** ({st.session_state.user_nivel})")
@@ -151,7 +152,7 @@ if sh:
                                         ])
                                 st.success(f"✅ Pedido {id_p} salvo!")
                                 st.cache_data.clear()
-                            except Exception as e: st.error(f"Erro ao salvar: {e}")
+                            except Exception as e: st.error(f"Erro: {e}")
 
         elif aba == "Gerenciar Pedido":
             st.subheader("Gerenciar Pedido")
@@ -164,6 +165,7 @@ if sh:
                     if not ped_comp.empty:
                         orig = ped_comp.iloc[0].to_dict()
                         if 'Programado' not in ped_comp.columns: ped_comp['Programado'] = 'FALSE'
+                        
                         cols_edit = ["Descrição", "Modalidade", "Quantidade", "KG Total", "Preço Unitário R$", "Prêmio Genético", "Prazo de Pagamento", "Pagamento Fêmea Retirada KG", "Pagamento Fêmea Retirada R$", "Aluguel", "Indexador", "Cobrar Frete", "Cobrar Registro Genealógico", "Data de entrega", "Programado", "Observação"]
                         ped_filtro = ped_comp[cols_edit].copy()
                         ped_filtro['Data de entrega'] = pd.to_datetime(ped_filtro['Data de entrega'], dayfirst=True, errors='coerce')
@@ -176,24 +178,27 @@ if sh:
                             foi_programado = any(ped_comp['Programado'].astype(str).str.upper() == "TRUE")
                             
                             if foi_programado:
-                                aba_log = sh.worksheet("Log_Alteracoes")
-                                # 1. Detectar Exclusões
-                                desc_originais = ped_filtro['Descrição'].tolist()
-                                desc_novos = df_ed['Descrição'].tolist()
-                                for d in desc_originais:
-                                    if d not in desc_novos:
-                                        aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ITEM EXCLUÍDO: {d}"])
-                                # 2. Detectar Alterações em colunas
-                                for idx, row_new in df_ed.iterrows():
-                                    if idx < len(ped_filtro):
-                                        row_old = ped_filtro.iloc[idx]
-                                        for col in cols_edit:
-                                            val_old = str(row_old[col])
-                                            val_new = str(row_new[col])
-                                            if val_old != val_new and val_new != "NaT":
-                                                aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"Alterou {col} de '{val_old}' para '{val_new}'"])
-                                    else:
-                                        aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ADICIONOU NOVO ITEM: {row_new['Descrição']}"])
+                                try:
+                                    aba_log = sh.worksheet("Log_Alteracoes")
+                                    # 1. Detectar Exclusões
+                                    itens_antes = ped_filtro['Descrição'].tolist()
+                                    itens_depois = df_ed['Descrição'].dropna().tolist()
+                                    for it in itens_antes:
+                                        if it not in itens_depois:
+                                            aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ITEM EXCLUÍDO: {it}"])
+                                    
+                                    # 2. Detectar Alterações e Adições
+                                    for idx, row_new in df_ed.iterrows():
+                                        if idx < len(ped_filtro): # Linha que já existia
+                                            row_old = ped_filtro.iloc[idx]
+                                            for c in cols_edit:
+                                                v_old = str(row_old[c])
+                                                v_new = str(row_new[c])
+                                                if v_old != v_new and v_new != "NaT" and v_new != "None":
+                                                    aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"Linha {idx+1}: Alterou {c} de '{v_old}' para '{v_new}'"])
+                                        elif row_new['Descrição']: # Linha nova adicionada
+                                            aba_log.append_row([agora_str, id_busca, st.session_state.user_nome, f"ADICIONOU ITEM: {row_new['Descrição']}"])
+                                except: pass
 
                             cell_list = aba_p.findall(id_busca)
                             for r in sorted(list(set([c.row for c in cell_list])), reverse=True): aba_p.delete_rows(r)
@@ -226,9 +231,9 @@ if sh:
 
                 if st.session_state.user_nivel == "Admin":
                     st.markdown("---")
-                    st.subheader("🛡️ Log Detalhado de Alterações (Pedidos Programados)")
+                    st.subheader("🛡️ Log Detalhado de Alterações")
                     try:
                         df_log = ler_planilha_seguro(sh.worksheet("Log_Alteracoes"))
-                        st.table(df_log.tail(20))
+                        st.table(df_log.tail(30))
                     except: st.info("Crie a aba 'Log_Alteracoes' para ver os detalhes.")
             except Exception as e: st.error(f"Erro: {e}")

@@ -3,3 +3,6 @@ pandas
 gspread
 google-api-python-client
 google-auth
+fpdf
+google-api-python-client
+google-auth

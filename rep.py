@@ -6,6 +6,11 @@ import time
 from fpdf import FPDF
 import io
 
+# MODO PING: Responde ao robô rapidamente sem carregar o app todo
+if st.query_params.get("status") == "ping":
+    st.write("DNA South America: Sistema Ativo")
+    st.stop()
+
 # 1. Configuração da Página
 st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")
 

@@ -7,17 +7,6 @@ from fpdf import FPDF
 import io
 import unicodedata
 
-# --- FUNÇÃO PARA EVITAR ERRO DE ACENTOS NO PDF ---
-def limpar_texto(texto):
-    if not texto: return ""
-    # Remove acentos e caracteres especiais para o PDF não travar
-    return "".join(c for c in unicodedata.normalize('NFD', str(texto))
-                   if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
-
-# --- PORTA DE ENTRADA PARA O ROBÔ (MODO PING) ---
-if st.query_params.get("ping") == "true":
-    st.write("Sistema Online")
-    st.stop()
 
 # 1. Configuração da Página
 st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")

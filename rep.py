@@ -5,6 +5,14 @@ from datetime import datetime, date
 import time
 from fpdf import FPDF
 import io
+import unicodedata
+
+# --- FUNÇÃO PARA EVITAR ERRO DE ACENTOS NO PDF ---
+def limpar_texto(texto):
+    if not texto: return ""
+    # Remove acentos e caracteres especiais para o PDF não travar
+    return "".join(c for c in unicodedata.normalize('NFD', str(texto))
+                   if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
 # --- PORTA DE ENTRADA PARA O ROBÔ (MODO PING) ---
 if st.query_params.get("ping") == "true":
@@ -35,12 +43,12 @@ class PDF(FPDF):
         except: pass
         self.set_font('Arial', 'B', 12)
         self.set_text_color(0, 0, 0) # Preto e Branco
-        self.cell(0, 10, 'Relatório de Reposição de Animais', 0, 1, 'R')
+        self.cell(0, 10, 'Relatorio de Reposicao de Animais', 0, 1, 'R')
         self.ln(5)
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 7)
-        self.cell(0, 10, f'DNA South America - Página {self.page_no()}', 0, 0, 'C')
+        self.cell(0, 10, f'DNA South America - Pagina {self.page_no()}', 0, 0, 'C')
 
 def gerar_pdf_multi_reposicao(lista_dados):
     lista_dados = sorted(lista_dados, key=lambda x: x['Cliente'].upper())
@@ -49,18 +57,19 @@ def gerar_pdf_multi_reposicao(lista_dados):
     for i, dados in enumerate(lista_dados):
         if pdf.get_y() > 240: pdf.add_page()
         pdf.set_font("Arial", 'B', 9)
-        pdf.cell(0, 7, f"REPOSIÇÃO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}", 1, 1, 'L')
+        # Aplicando limpeza de texto em cada linha do PDF
+        pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
-        pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, str(dados['Cliente']), 'R')
-        pdf.cell(25, 6, "CNPJ:", 'L'); pdf.cell(0, 6, str(dados['CNPJ']), 'R', 1)
-        pdf.cell(25, 6, "DNA ID:", 'L'); pdf.cell(70, 6, str(dados['DNA_ID']), 'R')
-        pdf.cell(25, 6, "Brinco:", 'L'); pdf.cell(0, 6, str(dados['Brinco']), 'R', 1)
-        pdf.cell(25, 6, "Motivo:", 'L'); pdf.cell(70, 6, str(dados['Motivo']), 'R')
-        pdf.cell(25, 6, "Tipo Repo:", 'L'); pdf.cell(0, 6, str(dados['Tipo_repo']), 'R', 1)
-        pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, str(dados['Status']), 'RB')
-        pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, str(dados.get('Data', 'N/A')), 'RB', 1)
+        pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
+        pdf.cell(25, 6, "CNPJ:", 'L'); pdf.cell(0, 6, limpar_texto(dados['CNPJ']), 'R', 1)
+        pdf.cell(25, 6, "DNA ID:", 'L'); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']), 'R')
+        pdf.cell(25, 6, "Brinco:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Brinco']), 'R', 1)
+        pdf.cell(25, 6, "Motivo:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Motivo']), 'R')
+        pdf.cell(25, 6, "Tipo Repo:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 'R', 1)
+        pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
+        pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
         pdf.ln(4)
-    return pdf.output(dest='S').encode('latin-1')
+    return pdf.output(dest='S') # Removido .encode('latin-1') para evitar erro
 
 # --- REGRAS E AUXILIARES ---
 def carregar_aba_segura(nome_aba):
@@ -146,17 +155,12 @@ if sh:
             st.subheader("Detalhes")
             st.text_input("Entrega Original", value=st.session_state.get('entrega_f', ''), disabled=True)
             vendedor_sel = st.selectbox("Solicitante*", options=[""] + vendedores, key=f"sol_{rk}")
-            
-            # MOSTRA TODOS OS MOTIVOS SEMPRE
             motivos_lista = obter_todos_motivos()
             motivo_sel = st.selectbox("Motivo*", options=[""] + motivos_lista, key=f"mot_{rk}")
-            
-            # VALIDAÇÃO DO PRAZO (APENAS AVISO)
             if motivo_sel:
                 dentro_prazo = validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999))
                 if not dentro_prazo:
                     st.error(f"⚠️ O motivo '{motivo_sel}' está fora do prazo de garantia ({st.session_state.get('dias_f', 0)} dias após entrega).")
-            
             st.number_input("Idade (Dias)", value=st.session_state.get('idade_f', 0), disabled=True)
         st.divider()
         c3, c4 = st.columns(2)
@@ -170,11 +174,9 @@ if sh:
             if not brinco_sel or not dna_sel or not vendedor_sel:
                 st.warning("⚠️ Preencha os campos obrigatórios!")
             else:
-                # SALVA O MOTIVO COM MARCAÇÃO SE ESTIVER FORA DO PRAZO
                 motivo_final = motivo_sel
                 if not validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999)):
                     motivo_final = f"⚠️ FORA DO PRAZO - {motivo_sel}"
-                
                 ws_repo.append_row([
                     str(dna_sel), str(brinco_sel), date.today().strftime("%d/%m/%Y"),
                     st.session_state.get('entrega_f',''), st.session_state.get('cliente_f',''),
@@ -182,7 +184,7 @@ if sh:
                     (foto.name if foto else ""), obs, add_prog, tipo_r, "Não", "PENDENTE", st.session_state.get('cnpj_f','')
                 ])
                 st.success("✅ Salvo!"); time.sleep(1); st.session_state.reset_trigger += 1; st.rerun()
-        
+
         st.divider(); st.subheader("Últimos Lançamentos")
         filtro_nome = st.selectbox("Filtrar por Solicitante:", ["Todos"] + vendedores)
         filtro_brinco = st.text_input("Filtrar por Brinco:")
@@ -246,4 +248,4 @@ if sh:
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
                     st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v6.3")
+    st.caption("DNA América do Sul - v6.4")

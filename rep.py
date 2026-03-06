@@ -7,17 +7,19 @@ from fpdf import FPDF
 import io
 import unicodedata
 
-# --- AJUSTE PARA NÃO HIBERNAR ---
-# No seu robô (UptimeRobot/Cron-job), use a URL: https://pedidodnareposicao.streamlit.app/?ping=true
+# --- AJUSTE 1: PREVENIR HIBERNAÇÃO (KEEP ALIVE) ---
+# No UptimeRobot ou Cron-job, use a URL: https://pedidodnareposicao.streamlit.app/?ping=true
 if st.query_params.get("ping") == "true":
-    st.write("Sistema Ativo")
+    st.write("Sistema Online")
     st.stop()
 
-# --- AJUSTE DE CARACTERES PARA PDF ---
+# --- AJUSTE 2: LIMPEZA DE CARACTERES PARA O PDF ---
 def limpar_texto(texto):
     if not texto: return ""
-    # Transforma acentos em letras simples e remove cedilhas para não travar o PDF
-    return "".join(c for c in unicodedata.normalize('NFD', str(texto))
+    # Remove emojis e caracteres especiais que o Latin-1 não suporta
+    texto = str(texto).replace("⚠️", "!").replace("✅", "OK").replace("❌", "X")
+    # Normaliza e remove acentos para garantir compatibilidade total
+    return "".join(c for c in unicodedata.normalize('NFD', texto)
                    if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
 # 1. Configuração da Página
@@ -37,19 +39,20 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- CLASSE PDF (P&B, ORGANIZADO) ---
+# --- CLASSE PDF ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
         except: pass
         self.set_font('Arial', 'B', 12)
         self.set_text_color(0, 0, 0)
-        self.cell(0, 10, limpar_texto('Relatório de Reposição de Animais'), 0, 1, 'R')
+        # Aplicado limpar_texto no título
+        self.cell(0, 10, limpar_texto('Relatorio de Reposicao de Animais'), 0, 1, 'R')
         self.ln(5)
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 7)
-        self.cell(0, 10, limpar_texto(f'DNA South America - Página {self.page_no()}'), 0, 0, 'C')
+        self.cell(0, 10, limpar_texto(f'DNA South America - Pagina {self.page_no()}'), 0, 0, 'C')
 
 def gerar_pdf_multi_reposicao(lista_dados):
     lista_dados = sorted(lista_dados, key=lambda x: x['Cliente'].upper())
@@ -58,11 +61,9 @@ def gerar_pdf_multi_reposicao(lista_dados):
     for i, dados in enumerate(lista_dados):
         if pdf.get_y() > 240: pdf.add_page()
         pdf.set_font("Arial", 'B', 9)
-        # Título da reposição com limpeza de caracteres
+        # Limpeza de caracteres em todos os campos para evitar o erro de Traceback
         pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
-        
-        # Conteúdo limpando cada campo individualmente
         pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
         pdf.cell(25, 6, "CNPJ:", 'L'); pdf.cell(0, 6, limpar_texto(dados['CNPJ']), 'R', 1)
         pdf.cell(25, 6, "DNA ID:", 'L'); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']), 'R')
@@ -72,7 +73,7 @@ def gerar_pdf_multi_reposicao(lista_dados):
         pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
         pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
         pdf.ln(4)
-    # Gera os dados em latin-1 substituindo o que não for reconhecido para evitar o erro fatal
+    # Encode final seguro
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 # --- REGRAS E AUXILIARES ---
@@ -99,6 +100,7 @@ def validar_prazo_motivo(motivo, sexo, dias):
         return True
     except: return True
 
+# --- BUSCA INSTANTÂNEA ---
 def atualizar_dados_animal():
     rk = st.session_state.reset_trigger
     brinco = st.session_state.get(f"br_{rk}")
@@ -179,6 +181,7 @@ if sh:
             else:
                 motivo_final = motivo_sel
                 if not validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999)):
+                    # Removido o emoji "⚠️" daqui, pois ele travava o PDF
                     motivo_final = f"FORA DO PRAZO - {motivo_sel}"
                 
                 ws_repo.append_row([

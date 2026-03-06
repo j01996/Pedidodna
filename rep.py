@@ -107,7 +107,6 @@ def atualizar_dados_animal():
             st.session_state.cliente_f = str(r.get('Nome_Cliente', r.get('Cliente', '')))
             st.session_state.cnpj_f = str(r.get('CNPJ', r.get('CNPJ_CPF', '')))
             
-            # --- CORREÇÃO DO ERRO DE IDADE ---
             try:
                 v_idade = str(r.get('Idade', '0')).strip().replace(',', '.')
                 st.session_state.idade_f = int(float(v_idade)) if v_idade else 0
@@ -194,9 +193,9 @@ if sh:
                 ])
                 st.success("✅ Salvo!"); time.sleep(1); st.session_state.reset_trigger += 1; st.rerun()
 
-        # --- REINSERINDO O PAINEL DE ÚLTIMOS LANÇAMENTOS COM FILTROS ---
+        # --- PAINEL DE LANÇAMENTOS COM HISTÓRICO COMPLETO ---
         st.divider()
-        st.subheader("📋 Últimos Lançamentos")
+        st.subheader("📋 Historico Completo de Lançamentos")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             filtro_nome = st.selectbox("Filtrar por Solicitante:", ["Todos"] + vendedores)
@@ -205,16 +204,16 @@ if sh:
         
         if not df_repo.empty:
             df_hist = df_repo.copy()
-            # Ajustando filtros (Coluna 5 é Vendedor, Coluna 1 é Brinco)
             if filtro_nome != "Todos": 
                 df_hist = df_hist[df_hist.iloc[:, 5] == filtro_nome]
             if filtro_brinco: 
                 df_hist = df_hist[df_hist.iloc[:, 1].astype(str).str.contains(filtro_brinco)]
             
-            exibicao = df_hist.iloc[::-1].head(10)
-            st.dataframe(exibicao, use_container_width=True)
+            # Removemos o .head(10) para mostrar tudo. O Streamlit cria a rolagem automaticamente.
+            exibicao = df_hist.iloc[::-1] 
+            st.dataframe(exibicao, use_container_width=True, height=400) # Definido altura para facilitar a rolagem
             
-            # Opção de Excluir
+            # Opção de Excluir (Mantida para os itens visíveis)
             id_para_excluir = st.selectbox("Excluir Reposição (Selecione o Brinco):", [""] + exibicao.iloc[:, 1].tolist())
             if id_para_excluir and st.button(f"🗑️ Confirmar Exclusão de {id_para_excluir}"):
                 dna_aux = exibicao[exibicao.iloc[:, 1] == id_para_excluir].iloc[0, 0]
@@ -271,4 +270,4 @@ if sh:
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
                     st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v6.9")
+    st.caption("DNA América do Sul - v7.0")

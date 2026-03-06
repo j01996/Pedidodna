@@ -100,7 +100,7 @@ def validar_prazo_motivo(motivo, sexo, dias):
         return True
     except: return True
 
-# --- BUSCA INSTANTÂNEA ---
+# --- BUSCA INSTANTÂNEA AJUSTADA ---
 def atualizar_dados_animal():
     rk = st.session_state.reset_trigger
     brinco = st.session_state.get(f"br_{rk}")
@@ -113,14 +113,25 @@ def atualizar_dados_animal():
             r = animal.iloc[0]
             st.session_state.cliente_f = str(r.get('Nome_Cliente', r.get('Cliente', '')))
             st.session_state.cnpj_f = str(r.get('CNPJ', r.get('CNPJ_CPF', '')))
-            st.session_state.idade_f = int(r.get('Idade', 0))
-            st.session_state.lin_f = r.get('Linhagem', ''); st.session_state.sex_f = r.get('Sexo_do_Animal', '')
+            
+            # --- CORREÇÃO DO ERRO AQUI ---
+            try:
+                # Tenta converter para número, tratando casos vazios ou com texto
+                valor_idade = str(r.get('Idade', '0')).strip().replace(',', '.')
+                st.session_state.idade_f = int(float(valor_idade)) if valor_idade else 0
+            except:
+                st.session_state.idade_f = 0
+            # -----------------------------
+
+            st.session_state.lin_f = r.get('Linhagem', '')
+            st.session_state.sex_f = r.get('Sexo_do_Animal', '')
             nf_raw = str(r.get('Data_NF', ''))
             st.session_state.entrega_f = nf_raw
             try:
                 dt_e = datetime.strptime(nf_raw, "%d/%m/%Y").date()
                 st.session_state.dias_f = (date.today() - dt_e).days
-            except: st.session_state.dias_f = 9999
+            except:
+                st.session_state.dias_f = 9999
 
 if sh:
     menu = st.sidebar.radio("Navegação", ["Cadastrar Reposição", "Aprovação (Diretor)", "Status de Envios"])

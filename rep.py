@@ -7,17 +7,18 @@ from fpdf import FPDF
 import io
 import unicodedata
 
-# --- AJUSTE PARA NÃO HIBERNAR ---
-# Configure seu robô para acessar: https://seua-app.streamlit.app/?ping=true
+# --- AJUSTE 1: PREVENIR HIBERNAÇÃO (KEEP ALIVE) ---
+# Configure o robô para acessar: https://pedidodnareposicao.streamlit.app/?ping=true
 if st.query_params.get("ping") == "true":
-    st.write("Sistema Ativo")
+    st.write("Sistema Online")
     st.stop()
 
-# --- AJUSTE DE CARACTERES PARA PDF ---
+# --- AJUSTE 2: FUNÇÃO PARA LIMPAR CARACTERES QUE TRAVAM O PDF ---
 def limpar_texto(texto):
     if not texto: return ""
-    # Remove acentos e substitui caracteres especiais para compatibilidade com FPDF
-    return "".join(c for c in unicodedata.normalize('NFD', str(texto))
+    # Remove emojis (como ⚠️) e normaliza acentos para o PDF não quebrar
+    texto = str(texto).replace("⚠️", "!")
+    return "".join(c for c in unicodedata.normalize('NFD', texto)
                    if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
 # 1. Configuração da Página
@@ -37,19 +38,21 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- CLASSE PDF (P&B, ORGANIZADO) ---
+# --- CLASSE PDF ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
         except: pass
         self.set_font('Arial', 'B', 12)
-        self.set_text_color(0, 0, 0) # Preto e Branco
-        self.cell(0, 10, limpar_texto('Relatório de Reposição de Animais'), 0, 1, 'R')
+        self.set_text_color(0, 0, 0)
+        # Aplicado limpar_texto no título do header
+        self.cell(0, 10, limpar_texto('Relatorio de Reposicao de Animais'), 0, 1, 'R')
         self.ln(5)
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 7)
-        self.cell(0, 10, limpar_texto(f'DNA South America - Página {self.page_no()}'), 0, 0, 'C')
+        # Aplicado limpar_texto no footer
+        self.cell(0, 10, limpar_texto(f'DNA South America - Pagina {self.page_no()}'), 0, 0, 'C')
 
 def gerar_pdf_multi_reposicao(lista_dados):
     lista_dados = sorted(lista_dados, key=lambda x: x['Cliente'].upper())
@@ -58,21 +61,18 @@ def gerar_pdf_multi_reposicao(lista_dados):
     for i, dados in enumerate(lista_dados):
         if pdf.get_y() > 240: pdf.add_page()
         pdf.set_font("Arial", 'B', 9)
-        # Título da seção com limpeza de caracteres
+        # Limpeza de caracteres em todos os campos para evitar UnicodeEncodeError
         pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
-        
-        # Conteúdo com limpeza de caracteres em todos os campos str
         pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
         pdf.cell(25, 6, "CNPJ:", 'L'); pdf.cell(0, 6, limpar_texto(dados['CNPJ']), 'R', 1)
-        pdf.cell(25, 6, "DNA ID:", 'L'); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']), 'R')
-        pdf.cell(25, 6, "Brinco:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Brinco']), 'R', 1)
-        pdf.cell(25, 6, "Motivo:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Motivo']), 'R')
-        pdf.cell(25, 6, "Tipo Repo:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 'R', 1)
+        pdf.cell(25, 6, "DNA ID:"); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']))
+        pdf.cell(25, 6, "Brinco:"); pdf.cell(0, 6, limpar_texto(dados['Brinco']), 0, 1)
+        pdf.cell(25, 6, "Motivo:"); pdf.cell(70, 6, limpar_texto(dados['Motivo']))
+        pdf.cell(25, 6, "Tipo Repo:"); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 0, 1)
         pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
         pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
         pdf.ln(4)
-    # Encode latin-1 com replace para segurança extra
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 # --- REGRAS E AUXILIARES ---
@@ -159,15 +159,12 @@ if sh:
             st.subheader("Detalhes")
             st.text_input("Entrega Original", value=st.session_state.get('entrega_f', ''), disabled=True)
             vendedor_sel = st.selectbox("Solicitante*", options=[""] + vendedores, key=f"sol_{rk}")
-            
             motivos_lista = obter_todos_motivos()
             motivo_sel = st.selectbox("Motivo*", options=[""] + motivos_lista, key=f"mot_{rk}")
-            
             if motivo_sel:
                 dentro_prazo = validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999))
                 if not dentro_prazo:
                     st.error(f"⚠️ O motivo '{motivo_sel}' está fora do prazo de garantia ({st.session_state.get('dias_f', 0)} dias após entrega).")
-            
             st.number_input("Idade (Dias)", value=st.session_state.get('idade_f', 0), disabled=True)
         st.divider()
         c3, c4 = st.columns(2)
@@ -183,7 +180,8 @@ if sh:
             else:
                 motivo_final = motivo_sel
                 if not validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999)):
-                    motivo_final = f"⚠️ FORA DO PRAZO - {motivo_sel}"
+                    # O "⚠️" causava o erro no PDF. Removi o emoji aqui para segurança.
+                    motivo_final = f"FORA DO PRAZO - {motivo_sel}"
                 
                 ws_repo.append_row([
                     str(dna_sel), str(brinco_sel), date.today().strftime("%d/%m/%Y"),
@@ -236,5 +234,4 @@ if sh:
                             'Status': r.iloc[14], 'CNPJ': r.iloc[15] if len(r)>15 else "N/A"
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
-                    st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v6.3")
+                    st.download_button("Baixar PDF", data=pdf

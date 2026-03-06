@@ -6,6 +6,12 @@ import time
 from fpdf import FPDF
 import io
 
+# --- PORTA DE ENTRADA PARA O ROBÔ (MANTER ACORDADO) ---
+# Adicione isso antes de st.set_page_config
+if st.query_params.get("keep_alive") == "true":
+    st.write("DNA System: Status Online")
+    st.stop() # Isso responde ao robô rápido e reseta o contador de hibernação
+
 # 1. Configuração da Página
 st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")
 

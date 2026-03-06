@@ -7,25 +7,22 @@ from fpdf import FPDF
 import io
 import unicodedata
 
-# --- AJUSTE 1: PREVENIR HIBERNAÇÃO (KEEP ALIVE) ---
-# No UptimeRobot ou Cron-job, use a URL: https://pedidodnareposicao.streamlit.app/?ping=true
+# --- 1. PREVENIR HIBERNAÇÃO (KEEP ALIVE) ---
 if st.query_params.get("ping") == "true":
     st.write("Sistema Online")
     st.stop()
 
-# --- AJUSTE 2: LIMPEZA DE CARACTERES PARA O PDF ---
+# --- 2. FUNÇÃO PARA LIMPAR CARACTERES DO PDF ---
 def limpar_texto(texto):
     if not texto: return ""
-    # Remove emojis e caracteres especiais que o Latin-1 não suporta
     texto = str(texto).replace("⚠️", "!").replace("✅", "OK").replace("❌", "X")
-    # Normaliza e remove acentos para garantir compatibilidade total
     return "".join(c for c in unicodedata.normalize('NFD', texto)
                    if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
-# 1. Configuração da Página
+# 3. Configuração da Página
 st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")
 
-# 2. Conexão Segura
+# 4. Conexão Segura
 @st.cache_resource
 def iniciar_conexao():
     try:
@@ -46,7 +43,6 @@ class PDF(FPDF):
         except: pass
         self.set_font('Arial', 'B', 12)
         self.set_text_color(0, 0, 0)
-        # Aplicado limpar_texto no título
         self.cell(0, 10, limpar_texto('Relatorio de Reposicao de Animais'), 0, 1, 'R')
         self.ln(5)
     def footer(self):
@@ -61,7 +57,6 @@ def gerar_pdf_multi_reposicao(lista_dados):
     for i, dados in enumerate(lista_dados):
         if pdf.get_y() > 240: pdf.add_page()
         pdf.set_font("Arial", 'B', 9)
-        # Limpeza de caracteres em todos os campos para evitar o erro de Traceback
         pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
         pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
@@ -73,7 +68,6 @@ def gerar_pdf_multi_reposicao(lista_dados):
         pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
         pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
         pdf.ln(4)
-    # Encode final seguro
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 # --- REGRAS E AUXILIARES ---
@@ -100,7 +94,6 @@ def validar_prazo_motivo(motivo, sexo, dias):
         return True
     except: return True
 
-# --- BUSCA INSTANTÂNEA AJUSTADA ---
 def atualizar_dados_animal():
     rk = st.session_state.reset_trigger
     brinco = st.session_state.get(f"br_{rk}")
@@ -114,14 +107,12 @@ def atualizar_dados_animal():
             st.session_state.cliente_f = str(r.get('Nome_Cliente', r.get('Cliente', '')))
             st.session_state.cnpj_f = str(r.get('CNPJ', r.get('CNPJ_CPF', '')))
             
-            # --- CORREÇÃO DO ERRO AQUI ---
+            # --- CORREÇÃO DO ERRO DE IDADE ---
             try:
-                # Tenta converter para número, tratando casos vazios ou com texto
-                valor_idade = str(r.get('Idade', '0')).strip().replace(',', '.')
-                st.session_state.idade_f = int(float(valor_idade)) if valor_idade else 0
+                v_idade = str(r.get('Idade', '0')).strip().replace(',', '.')
+                st.session_state.idade_f = int(float(v_idade)) if v_idade else 0
             except:
                 st.session_state.idade_f = 0
-            # -----------------------------
 
             st.session_state.lin_f = r.get('Linhagem', '')
             st.session_state.sex_f = r.get('Sexo_do_Animal', '')
@@ -130,8 +121,7 @@ def atualizar_dados_animal():
             try:
                 dt_e = datetime.strptime(nf_raw, "%d/%m/%Y").date()
                 st.session_state.dias_f = (date.today() - dt_e).days
-            except:
-                st.session_state.dias_f = 9999
+            except: st.session_state.dias_f = 9999
 
 if sh:
     menu = st.sidebar.radio("Navegação", ["Cadastrar Reposição", "Aprovação (Diretor)", "Status de Envios"])
@@ -145,6 +135,7 @@ if sh:
         df_repo, ws_repo = carregar_aba_segura("Relatorio_Reposicoes")
         df_enviados, _ = carregar_aba_segura("Rep enviadas")
         rk = st.session_state.reset_trigger
+        
         col1, col2 = st.columns(2)
         bloqueado = False
         with col1:
@@ -186,13 +177,13 @@ if sh:
         with c4:
             obs = st.text_area("Observações*", key=f"obs_{rk}")
             tipo_r = st.selectbox("Tipo*", options=["", "Parcialmente", "Total"], key=f"tipo_{rk}")
+        
         if st.button("Salvar Solicitação", disabled=bloqueado):
             if not brinco_sel or not dna_sel or not vendedor_sel:
                 st.warning("⚠️ Preencha os campos obrigatórios!")
             else:
                 motivo_final = motivo_sel
                 if not validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999)):
-                    # Removido o emoji "⚠️" daqui, pois ele travava o PDF
                     motivo_final = f"FORA DO PRAZO - {motivo_sel}"
                 
                 ws_repo.append_row([
@@ -202,6 +193,39 @@ if sh:
                     (foto.name if foto else ""), obs, add_prog, tipo_r, "Não", "PENDENTE", st.session_state.get('cnpj_f','')
                 ])
                 st.success("✅ Salvo!"); time.sleep(1); st.session_state.reset_trigger += 1; st.rerun()
+
+        # --- REINSERINDO O PAINEL DE ÚLTIMOS LANÇAMENTOS COM FILTROS ---
+        st.divider()
+        st.subheader("📋 Últimos Lançamentos")
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            filtro_nome = st.selectbox("Filtrar por Solicitante:", ["Todos"] + vendedores)
+        with col_f2:
+            filtro_brinco = st.text_input("Filtrar por Brinco:")
+        
+        if not df_repo.empty:
+            df_hist = df_repo.copy()
+            # Ajustando filtros (Coluna 5 é Vendedor, Coluna 1 é Brinco)
+            if filtro_nome != "Todos": 
+                df_hist = df_hist[df_hist.iloc[:, 5] == filtro_nome]
+            if filtro_brinco: 
+                df_hist = df_hist[df_hist.iloc[:, 1].astype(str).str.contains(filtro_brinco)]
+            
+            exibicao = df_hist.iloc[::-1].head(10)
+            st.dataframe(exibicao, use_container_width=True)
+            
+            # Opção de Excluir
+            id_para_excluir = st.selectbox("Excluir Reposição (Selecione o Brinco):", [""] + exibicao.iloc[:, 1].tolist())
+            if id_para_excluir and st.button(f"🗑️ Confirmar Exclusão de {id_para_excluir}"):
+                dna_aux = exibicao[exibicao.iloc[:, 1] == id_para_excluir].iloc[0, 0]
+                linhas = ws_repo.get_all_values()
+                for idx, row in enumerate(linhas):
+                    if idx == 0: continue
+                    if str(row[1]) == str(id_para_excluir) and str(row[0]) == str(dna_aux):
+                        ws_repo.delete_rows(idx + 1)
+                        st.success("Excluído com sucesso!")
+                        time.sleep(1)
+                        st.rerun()
 
     elif menu == "Aprovação (Diretor)":
         st.title("Painel de Aprovação")
@@ -247,4 +271,4 @@ if sh:
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
                     st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v6.8")
+    st.caption("DNA América do Sul - v6.9")

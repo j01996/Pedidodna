@@ -12,6 +12,12 @@ if st.query_params.get("keep_alive") == "true":
     st.write("DNA System: Status Online")
     st.stop() # Isso responde ao robô rápido e reseta o contador de hibernação
 
+# --- 2. FUNÇÃO DE LIMPEZA PARA O PDF ---
+def limpar_texto(texto):
+    if not texto: return ""
+    return "".join(c for c in unicodedata.normalize('NFD', str(texto))
+                   if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
+
 # 1. Configuração da Página
 st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")
 

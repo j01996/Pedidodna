@@ -14,8 +14,8 @@ def limpar_texto(texto):
     return "".join(c for c in unicodedata.normalize('NFD', str(texto))
                    if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
-# --- 2. PORTA DE ENTRADA PARA O ROBÔ (KEEP ALIVE) ---
-# No UptimeRobot, use a URL: https://pedidodnareposicao.streamlit.app/?manter_vivo=verdadeiro
+# --- 2. PORTA DE ENTRADA PARA O ROBÔ (MODO PING) ---
+# Configure o monitoramento para: https://pedidodnareposicao.streamlit.app/?manter_vivo=verdadeiro
 if st.query_params.get("manter_vivo") == "verdadeiro":
     st.write("Sistema Online e Ativo.")
     st.stop()
@@ -32,7 +32,7 @@ def iniciar_conexao():
         sh = client.open_by_key("1ZciM1-ym--0IvGHvJ-xy1lZCki7hbRxDgIOgly1STCQ")
         return sh
     except Exception as e:
-        st.error(f"⚠️ Erro de Conexao: {e}")
+        st.error(f"⚠️ Erro de Conexão: {e}")
         return None
 
 sh = iniciar_conexao()
@@ -57,7 +57,7 @@ def gerar_pdf_multi_reposicao(lista_dados):
     for dados in lista_dados:
         if pdf.get_y() > 230: pdf.add_page()
         pdf.set_font("Arial", 'B', 9)
-        # Limpamos todos os campos antes de enviar para o PDF para evitar o UnicodeEncodeError
+        # Aplicamos o limpar_texto em cada campo para evitar o erro de Unicode
         pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
         pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
@@ -67,9 +67,8 @@ def gerar_pdf_multi_reposicao(lista_dados):
         pdf.cell(25, 6, "Motivo:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Motivo']), 'R')
         pdf.cell(25, 6, "Tipo:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 'R', 1)
         pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
-        pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
+        pdf.cell(25, 6, "Data:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
         pdf.ln(4)
-    # Retorno seguro em bytes
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 

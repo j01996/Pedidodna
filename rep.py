@@ -7,18 +7,17 @@ from fpdf import FPDF
 import io
 import unicodedata
 
-# --- AJUSTE 1: PREVENIR HIBERNAÇÃO (KEEP ALIVE) ---
-# Configure o robô para acessar: https://pedidodnareposicao.streamlit.app/?ping=true
+# --- AJUSTE PARA NÃO HIBERNAR ---
+# No seu robô (UptimeRobot/Cron-job), use a URL: https://pedidodnareposicao.streamlit.app/?ping=true
 if st.query_params.get("ping") == "true":
-    st.write("Sistema Online")
+    st.write("Sistema Ativo")
     st.stop()
 
-# --- AJUSTE 2: FUNÇÃO PARA LIMPAR CARACTERES QUE TRAVAM O PDF ---
+# --- AJUSTE DE CARACTERES PARA PDF ---
 def limpar_texto(texto):
     if not texto: return ""
-    # Remove emojis (como ⚠️) e normaliza acentos para o PDF não quebrar
-    texto = str(texto).replace("⚠️", "!")
-    return "".join(c for c in unicodedata.normalize('NFD', texto)
+    # Transforma acentos em letras simples e remove cedilhas para não travar o PDF
+    return "".join(c for c in unicodedata.normalize('NFD', str(texto))
                    if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
 # 1. Configuração da Página
@@ -38,21 +37,19 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- CLASSE PDF ---
+# --- CLASSE PDF (P&B, ORGANIZADO) ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
         except: pass
         self.set_font('Arial', 'B', 12)
         self.set_text_color(0, 0, 0)
-        # Aplicado limpar_texto no título do header
-        self.cell(0, 10, limpar_texto('Relatorio de Reposicao de Animais'), 0, 1, 'R')
+        self.cell(0, 10, limpar_texto('Relatório de Reposição de Animais'), 0, 1, 'R')
         self.ln(5)
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 7)
-        # Aplicado limpar_texto no footer
-        self.cell(0, 10, limpar_texto(f'DNA South America - Pagina {self.page_no()}'), 0, 0, 'C')
+        self.cell(0, 10, limpar_texto(f'DNA South America - Página {self.page_no()}'), 0, 0, 'C')
 
 def gerar_pdf_multi_reposicao(lista_dados):
     lista_dados = sorted(lista_dados, key=lambda x: x['Cliente'].upper())
@@ -61,18 +58,21 @@ def gerar_pdf_multi_reposicao(lista_dados):
     for i, dados in enumerate(lista_dados):
         if pdf.get_y() > 240: pdf.add_page()
         pdf.set_font("Arial", 'B', 9)
-        # Limpeza de caracteres em todos os campos para evitar UnicodeEncodeError
+        # Título da reposição com limpeza de caracteres
         pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
+        
+        # Conteúdo limpando cada campo individualmente
         pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
         pdf.cell(25, 6, "CNPJ:", 'L'); pdf.cell(0, 6, limpar_texto(dados['CNPJ']), 'R', 1)
-        pdf.cell(25, 6, "DNA ID:"); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']))
-        pdf.cell(25, 6, "Brinco:"); pdf.cell(0, 6, limpar_texto(dados['Brinco']), 0, 1)
-        pdf.cell(25, 6, "Motivo:"); pdf.cell(70, 6, limpar_texto(dados['Motivo']))
-        pdf.cell(25, 6, "Tipo Repo:"); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 0, 1)
+        pdf.cell(25, 6, "DNA ID:", 'L'); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']), 'R')
+        pdf.cell(25, 6, "Brinco:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Brinco']), 'R', 1)
+        pdf.cell(25, 6, "Motivo:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Motivo']), 'R')
+        pdf.cell(25, 6, "Tipo Repo:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 'R', 1)
         pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
         pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
         pdf.ln(4)
+    # Gera os dados em latin-1 substituindo o que não for reconhecido para evitar o erro fatal
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
 # --- REGRAS E AUXILIARES ---
@@ -99,7 +99,6 @@ def validar_prazo_motivo(motivo, sexo, dias):
         return True
     except: return True
 
-# --- BUSCA INSTANTÂNEA ---
 def atualizar_dados_animal():
     rk = st.session_state.reset_trigger
     brinco = st.session_state.get(f"br_{rk}")
@@ -180,7 +179,6 @@ if sh:
             else:
                 motivo_final = motivo_sel
                 if not validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999)):
-                    # O "⚠️" causava o erro no PDF. Removi o emoji aqui para segurança.
                     motivo_final = f"FORA DO PRAZO - {motivo_sel}"
                 
                 ws_repo.append_row([
@@ -234,4 +232,5 @@ if sh:
                             'Status': r.iloc[14], 'CNPJ': r.iloc[15] if len(r)>15 else "N/A"
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
-                    st.download_button("Baixar PDF", data=pdf
+                    st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
+    st.caption("DNA América do Sul - v6.8")

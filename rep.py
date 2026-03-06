@@ -7,22 +7,23 @@ from fpdf import FPDF
 import io
 import unicodedata
 
-# --- AJUSTE 1: PORTA PARA EVITAR HIBERNAÇÃO (KEEP ALIVE) ---
-# Configure o seu robô para acessar: https://pedidodnareposicao.streamlit.app/?ping=true
-if st.query_params.get("ping") == "true":
-    st.write("Sistema Online")
-    st.stop()
-
-# --- AJUSTE 2: FUNÇÃO PARA LIMPAR CARACTERES ESPECIAIS DO PDF ---
+# --- 1. FUNÇÃO PARA EVITAR ERRO DE ACENTOS NO PDF ---
 def limpar_texto(texto):
     if not texto: return ""
+    # Transforma 'ç' em 'c', 'ã' em 'a', etc., para o PDF não bugar
     return "".join(c for c in unicodedata.normalize('NFD', str(texto))
                    if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
-# 1. Configuração da Página
+# --- 2. PORTA DE ENTRADA PARA O ROBÔ (KEEP ALIVE) ---
+# No UptimeRobot, use a URL: https://pedidodnareposicao.streamlit.app/?manter_vivo=verdadeiro
+if st.query_params.get("manter_vivo") == "verdadeiro":
+    st.write("Sistema Online e Ativo.")
+    st.stop()
+
+# 3. Configuração da Página
 st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")
 
-# 2. Conexão Segura
+# 4. Conexão Segura
 @st.cache_resource
 def iniciar_conexao():
     try:
@@ -31,18 +32,17 @@ def iniciar_conexao():
         sh = client.open_by_key("1ZciM1-ym--0IvGHvJ-xy1lZCki7hbRxDgIOgly1STCQ")
         return sh
     except Exception as e:
-        st.error(f"⚠️ Erro de Conexão: {e}")
+        st.error(f"⚠️ Erro de Conexao: {e}")
         return None
 
 sh = iniciar_conexao()
 
-# --- CLASSE PDF (P&B, ORGANIZADO) ---
+# --- CLASSE PDF ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
         except: pass
         self.set_font('Arial', 'B', 12)
-        self.set_text_color(0, 0, 0) # Preto e Branco
         self.cell(0, 10, 'Relatorio de Reposicao de Animais', 0, 1, 'R')
         self.ln(5)
     def footer(self):
@@ -51,13 +51,13 @@ class PDF(FPDF):
         self.cell(0, 10, f'DNA South America - Pagina {self.page_no()}', 0, 0, 'C')
 
 def gerar_pdf_multi_reposicao(lista_dados):
-    lista_dados = sorted(lista_dados, key=lambda x: x['Cliente'].upper())
     pdf = PDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    for i, dados in enumerate(lista_dados):
-        if pdf.get_y() > 240: pdf.add_page()
+    for dados in lista_dados:
+        if pdf.get_y() > 230: pdf.add_page()
         pdf.set_font("Arial", 'B', 9)
-        # Aplicado limpar_texto para evitar o erro de UnicodeEncodeError
+        # Limpamos todos os campos antes de enviar para o PDF para evitar o UnicodeEncodeError
         pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
         pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
@@ -65,12 +65,13 @@ def gerar_pdf_multi_reposicao(lista_dados):
         pdf.cell(25, 6, "DNA ID:", 'L'); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']), 'R')
         pdf.cell(25, 6, "Brinco:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Brinco']), 'R', 1)
         pdf.cell(25, 6, "Motivo:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Motivo']), 'R')
-        pdf.cell(25, 6, "Tipo Repo:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 'R', 1)
+        pdf.cell(25, 6, "Tipo:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 'R', 1)
         pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
         pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
         pdf.ln(4)
-    # Encode latin-1 com replace para garantir que nenhum caractere invisível quebre o arquivo
+    # Retorno seguro em bytes
     return pdf.output(dest='S').encode('latin-1', 'replace')
+
 
 # --- REGRAS E AUXILIARES ---
 def carregar_aba_segura(nome_aba):

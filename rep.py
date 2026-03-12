@@ -175,7 +175,7 @@ if sh:
             add_prog = st.selectbox("Adicionar animal na programação?*", ["", "Sim", "Não"], key=f"prog_{rk}")
         with c4:
             obs = st.text_area("Observações*", key=f"obs_{rk}")
-            tipo_r = st.selectbox("Tipo*", options=["", "Parcialmente", "Total"], key=f"tipo_{rk}")
+            tipo_r = st.selectbox("Tipo*", options=["", "Parcial", "Total"], key=f"tipo_{rk}")
         
         if st.button("Salvar Solicitação", disabled=bloqueado):
             if not brinco_sel or not dna_sel or not vendedor_sel:

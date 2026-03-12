@@ -144,7 +144,7 @@ if sh:
             if brinco_sel and not df_enviados.empty:
                 ja_env = df_enviados[(df_enviados.iloc[:, 15].astype(str) == str(brinco_sel)) & (df_enviados.iloc[:, 5].astype(str) == st.session_state.get('cliente_f'))]
                 if not ja_env.empty:
-                    st.write(f":red[**Animal já enviado para este cliente anteriormente.**]"); bloqueado = True
+                    st.write(f":red[**Reposição deste animal já foi cadastrada anteriormente**]"); bloqueado = True
             br_atual = st.session_state.get(f"br_{rk}")
             ids_dna = [""]
             if br_atual:

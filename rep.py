@@ -124,7 +124,7 @@ def atualizar_dados_animal():
 
 if sh:
     menu = st.sidebar.radio("Navegação", ["Cadastrar Reposição", "Aprovação (Diretor)", "Status de Envios"])
-    vendedores = ["Amanda","Caio Simões","Leonardo","Thomas","Fabio","Thiagner","Maria Gessica","Eduardo","RPsui","Mariana","André Mallman","Gustavo Laureano"]
+    vendedores = ["Amanda Silva","Caio Simões","Késsila Rodrigues","Leonardo Abreu","Thomas Bierhals","Fabio Rocha","Thiagner Correa","Maria Gessica","Eduardo Machado","RPsui","Mariana Andreis","André Mallman","Gustavo Laureano"]
 
     if menu == "Cadastrar Reposição":
         st.title("Pedidos de Reposição")

@@ -21,157 +21,130 @@ def limpar_texto(texto):
                    if unicodedata.category(c) != 'Mn').replace('ç', 'c').replace('Ç', 'C')
 
 # 3. Configuração da Página
-st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")
+st.set_page_config(page_title="DNA South America - Gestão de Reposição", layout="wide")
 
-# 4. Conexão Segura com a Planilha
+# 4. Conexão Segura
 @st.cache_resource
 def iniciar_conexao():
-    try:
-        info = st.secrets["minha_nova_conexao"]
-        client = gspread.service_account_from_dict(info)
-        sh = client.open_by_key("1ZciM1-ym--0IvGHvJ-xy1lZCki7hbRxDgIOgly1STCQ")
-        return sh
-    except Exception as e:
-        st.error(f"⚠️ Erro de Conexão: {e}")
-        return None
+    for tentativa in range(3):
+        try:
+            info = st.secrets["minha_nova_conexao"]
+            client = gspread.service_account_from_dict(info)
+            # Chave da planilha de Reposição
+            sh = client.open_by_key("1ZciM1-ym--0IvGHvJ-xy1lZCki7hbRxDgIOgly1STCQ")
+            return sh
+        except Exception as e:
+            if tentativa == 2:
+                st.error(f"⚠️ Erro de Conexão: {e}")
+                return None
+            time.sleep(1)
 
 sh = iniciar_conexao()
 
-# --- GERENCIADOR DE COOKIES (SEM CACHE PARA EVITAR ERROS) ---
+# --- GERENCIADOR DE COOKIES ---
 cookie_manager = stx.CookieManager()
 
-if 'logado' not in st.session_state:
-    st.session_state.logado = False
+# --- FUNÇÃO DE AUXÍLIO PARA LER PLANILHA ---
+def ler_planilha_seguro(aba):
+    try:
+        data = aba.get_all_values()
+        if not data or len(data) < 2: return pd.DataFrame()
+        df = pd.DataFrame(data[1:], columns=data[0])
+        return df
+    except: return pd.DataFrame()
 
-# --- LÓGICA DE RECUPERAÇÃO DE LOGIN (PERSISTÊNCIA) ---
-if not st.session_state.logado:
-    # O Streamlit precisa de um pequeno tempo para ler os cookies do navegador
-    time.sleep(0.5) 
+# --- LÓGICA DE LOGIN E PERSISTÊNCIA ---
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+
+if not st.session_state.autenticado:
+    time.sleep(0.6) # Tempo para ler cookies
     saved_email = cookie_manager.get('dna_user_email')
     saved_pass = cookie_manager.get('dna_user_pass')
     
     if saved_email and saved_pass:
         try:
-            ws_u = sh.worksheet("Usuarios")
-            df_u = pd.DataFrame(ws_u.get_all_records())
-            user = df_u[(df_u['email'].astype(str) == str(saved_email)) & 
-                        (df_u['senha'].astype(str) == str(saved_pass))]
-            if not user.empty:
-                st.session_state.logado = True
-                st.session_state.usuario_nome = user.iloc[0]['nome']
-                st.session_state.usuario_nivel = user.iloc[0]['nivel']
+            aba_u = sh.worksheet("Usuarios")
+            df_u = ler_planilha_seguro(aba_u)
+            user_match = df_u[(df_u['email'].str.lower() == str(saved_email).lower()) & (df_u['senha'].astype(str) == str(saved_pass))]
+            if not user_match.empty:
+                st.session_state.autenticado = True
+                st.session_state.user_email = saved_email
+                st.session_state.user_nome = user_match.iloc[0]['nome']
+                st.session_state.user_nivel = user_match.iloc[0].get('nivel', 'Vendedor')
                 st.rerun()
-        except:
-            pass
+        except: pass
 
-# --- TELA DE LOGIN ---
-if not st.session_state.logado:
-    st.title("DNA - Acesso ao Sistema")
-    aba_login, aba_cad = st.tabs(["Acessar Conta", "Criar Nova Conta"])
+if not st.session_state.autenticado:
+    st.title("DNA South America - Login")
+    aba_login, aba_registro = st.tabs(["Acessar Conta", "Criar Nova Conta"])
     
     with aba_login:
-        email_log = st.text_input("E-mail", key="email_login")
-        senha_log = st.text_input("Senha", type="password", key="senha_login")
-        lembrar = st.checkbox("Manter conectado (30 dias)", value=True)
-        
-        if st.button("Entrar"):
-            try:
-                ws_u = sh.worksheet("Usuarios")
-                df_u = pd.DataFrame(ws_u.get_all_records())
-                user = df_u[(df_u['email'].astype(str) == str(email_log)) & 
-                            (df_u['senha'].astype(str) == str(senha_log))]
-                
-                if not user.empty:
-                    st.session_state.logado = True
-                    st.session_state.usuario_nome = user.iloc[0]['nome']
-                    st.session_state.usuario_nivel = user.iloc[0]['nivel']
-                    
-                    if lembrar:
-                        cookie_manager.set('dna_user_email', email_log, expires_at=datetime.now() + pd.Timedelta(days=30))
-                        cookie_manager.set('dna_user_pass', str(senha_log), expires_at=datetime.now() + pd.Timedelta(days=30))
-                    
-                    st.success("Login realizado!")
-                    time.sleep(0.5)
-                    st.rerun()
+        with st.form("form_login"):
+            email_input = st.text_input("E-mail").strip().lower()
+            senha_input = st.text_input("Senha", type="password").strip()
+            lembrar = st.checkbox("Manter conectado", value=True)
+            if st.form_submit_button("Entrar"):
+                try:
+                    aba_users = sh.worksheet("Usuarios")
+                    df_users = ler_planilha_seguro(aba_users)
+                    user_match = df_users[(df_users['email'].str.lower() == email_input) & (df_users['senha'].astype(str) == senha_input)]
+                    if not user_match.empty:
+                        st.session_state.autenticado = True
+                        st.session_state.user_email = email_input
+                        st.session_state.user_nome = user_match.iloc[0]['nome']
+                        st.session_state.user_nivel = user_match.iloc[0].get('nivel', 'Vendedor')
+                        if lembrar:
+                            cookie_manager.set('dna_user_email', email_input, expires_at=datetime.now() + pd.Timedelta(days=30))
+                            cookie_manager.set('dna_user_pass', senha_input, expires_at=datetime.now() + pd.Timedelta(days=30))
+                        st.rerun()
+                    else: st.error("🚫 E-mail ou senha incorretos.")
+                except Exception as e: st.error(f"Erro ao acessar base: {e}")
+
+    with aba_registro:
+        st.subheader("📝 Cadastre seu usuário")
+        with st.form("form_registro"):
+            novo_nome = st.text_input("Nome Completo")
+            novo_email = st.text_input("E-mail corporativo").strip().lower()
+            nova_senha = st.text_input("Defina uma Senha", type="password").strip()
+            confirmar_senha = st.text_input("Confirme a Senha", type="password").strip()
+            if st.form_submit_button("Registrar"):
+                if not novo_nome or not novo_email or not nova_senha: st.warning("Preencha tudo.")
+                elif nova_senha != confirmar_senha: st.error("As senhas não coincidem.")
                 else:
-                    st.error("E-mail ou senha incorretos.")
-            except:
-                st.warning("Estabilizando conexão... Tente clicar em Entrar novamente.")
-    
-    with aba_cad:
-        nome_novo = st.text_input("Nome Completo")
-        email_novo = st.text_input("E-mail para acesso")
-        senha_novo = st.text_input("Crie uma Senha", type="password")
-        if st.button("Cadastrar"):
-            try:
-                ws_u = sh.worksheet("Usuarios")
-                ws_u.append_row([email_novo, senha_novo, nome_novo, "user"])
-                st.success("Conta criada! Vá para a aba 'Acessar Conta'.")
-            except:
-                st.error("Erro ao cadastrar.")
+                    try:
+                        aba_users = sh.worksheet("Usuarios")
+                        aba_users.append_row([novo_email, nova_senha, novo_nome, "Vendedor"])
+                        st.success("✅ Conta criada! Vá para a aba Login.")
+                    except Exception as e: st.error(f"Erro ao registrar: {e}")
     st.stop()
 
-# --- DAQUI PARA BAIXO: SEU CÓDIGO ORIGINAL MANTIDO ---
+# --- SISTEMA APÓS LOGIN ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
         except: pass
-        self.set_font('Arial', 'B', 12)
-        self.set_text_color(0, 0, 0)
-        self.cell(0, 10, limpar_texto('Relatorio de Reposicao de Animais'), 0, 1, 'R')
-        self.ln(5)
+        self.set_font('Arial', 'B', 12); self.cell(0, 10, limpar_texto('Relatorio de Reposicao'), 0, 1, 'R'); self.ln(5)
     def footer(self):
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 7)
-        self.cell(0, 10, limpar_texto(f'DNA South America - Pagina {self.page_no()}'), 0, 0, 'C')
+        self.set_y(-15); self.set_font('Arial', 'I', 7); self.cell(0, 10, limpar_texto(f'DNA South America - Página {self.page_no()}'), 0, 0, 'C')
 
 def gerar_pdf_multi_reposicao(lista_dados):
     lista_dados = sorted(lista_dados, key=lambda x: x['Cliente'].upper())
-    pdf = PDF()
-    pdf.add_page()
-    for i, dados in enumerate(lista_dados):
+    pdf = PDF(); pdf.add_page()
+    for dados in lista_dados:
         if pdf.get_y() > 240: pdf.add_page()
-        pdf.set_font("Arial", 'B', 9)
-        pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
+        pdf.set_font("Arial", 'B', 9); pdf.cell(0, 7, limpar_texto(f"REPOSICAO: {dados['Brinco']} - CLIENTE: {dados['Cliente']}"), 1, 1, 'L')
         pdf.set_font("Arial", '', 8)
-        pdf.cell(25, 6, "Cliente:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Cliente']), 'R')
-        pdf.cell(25, 6, "CNPJ:", 'L'); pdf.cell(0, 6, limpar_texto(dados['CNPJ']), 'R', 1)
-        pdf.cell(25, 6, "DNA ID:", 'L'); pdf.cell(70, 6, limpar_texto(dados['DNA_ID']), 'R')
-        pdf.cell(25, 6, "Brinco:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Brinco']), 'R', 1)
-        pdf.cell(25, 6, "Motivo:", 'L'); pdf.cell(70, 6, limpar_texto(dados['Motivo']), 'R')
-        pdf.cell(25, 6, "Tipo Repo:", 'L'); pdf.cell(0, 6, limpar_texto(dados['Tipo_repo']), 'R', 1)
-        pdf.cell(25, 6, "Status:", 'LB'); pdf.cell(70, 6, limpar_texto(dados['Status']), 'RB')
-        pdf.cell(25, 6, "Data Sol.:", 'LB'); pdf.cell(0, 6, limpar_texto(dados.get('Data', 'N/A')), 'RB', 1)
+        pdf.cell(25, 6, "Cliente:"); pdf.cell(70, 6, limpar_texto(dados['Cliente']))
+        pdf.cell(25, 6, "CNPJ:"); pdf.cell(0, 6, limpar_texto(dados['CNPJ']), 0, 1)
         pdf.ln(4)
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
-def carregar_aba_segura(nome_aba):
-    try:
-        ws = sh.worksheet(nome_aba)
-        dados = ws.get_all_values()
-        if not dados or len(dados) < 2: return pd.DataFrame(), ws
-        df = pd.DataFrame(dados[1:], columns=dados[0])
-        df.columns = [str(c).strip() for c in df.columns]
-        return df, ws
-    except: return pd.DataFrame(), None
-
-def obter_todos_motivos():
-    return sorted(["Acordo Comercial", "NSA", "Morte/Fratura", "Prolapso", "Hérnia", "Locomotor/Aprumo", "Problema de Casco", "Anestro", "Vulva Infantil"])
-
-def validar_prazo_motivo(motivo, sexo, dias):
-    try:
-        d = int(dias); s = str(sexo).upper()
-        if motivo in ["Morte/Fratura", "Prolapso"] and d > 30: return False
-        if motivo in ["Hérnia", "Locomotor/Aprumo", "Problema de Casco"] and d > 60: return False
-        if motivo in ["Anestro", "Vulva Infantil"]:
-            if "F" not in s or d > 150: return False
-        return True
-    except: return True
+def obter_todos_motivos(): return sorted(["Acordo Comercial", "NSA", "Morte/Fratura", "Prolapso", "Hérnia", "Locomotor/Aprumo", "Problema de Casco", "Anestro", "Vulva Infantil"])
 
 def atualizar_dados_animal():
     rk = st.session_state.reset_trigger
-    brinco = st.session_state.get(f"br_{rk}")
-    dna = st.session_state.get(f"dna_{rk}")
+    brinco = st.session_state.get(f"br_{rk}"); dna = st.session_state.get(f"dna_{rk}")
     if brinco and dna:
         df_b = st.session_state.df_base
         c_dna = next((c for c in df_b.columns if 'DNA' in c.upper()), df_b.columns[0])
@@ -180,166 +153,77 @@ def atualizar_dados_animal():
             r = animal.iloc[0]
             st.session_state.cliente_f = str(r.get('Nome_Cliente', r.get('Cliente', '')))
             st.session_state.cnpj_f = str(r.get('CNPJ', r.get('CNPJ_CPF', '')))
-            try:
-                v_idade = str(r.get('Idade', '0')).strip().replace(',', '.')
-                st.session_state.idade_f = int(float(v_idade)) if v_idade else 0
-            except:
-                st.session_state.idade_f = 0
-            st.session_state.lin_f = r.get('Linhagem', '')
-            st.session_state.sex_f = r.get('Sexo_do_Animal', '')
-            nf_raw = str(r.get('Data_NF', ''))
-            st.session_state.entrega_f = nf_raw
-            try:
-                dt_e = datetime.strptime(nf_raw, "%d/%m/%Y").date()
-                st.session_state.dias_f = (date.today() - dt_e).days
-            except: st.session_state.dias_f = 9999
+            try: v_idade = str(r.get('Idade', '0')).strip().replace(',', '.'); st.session_state.idade_f = int(float(v_idade))
+            except: st.session_state.idade_f = 0
+            st.session_state.entrega_f = str(r.get('Data_NF', ''))
 
 if sh:
-    st.sidebar.write(f"Usuário: **{st.session_state.usuario_nome}**")
-    if st.sidebar.button("Sair/Deslogar"):
+    st.sidebar.write(f"👤 **{st.session_state.user_nome}**")
+    if st.sidebar.button("Sair"):
         cookie_manager.delete('dna_user_email')
         cookie_manager.delete('dna_user_pass')
-        st.session_state.logado = False
+        st.session_state.autenticado = False
         st.rerun()
 
     menu = st.sidebar.radio("Navegação", ["Cadastrar Reposição", "Aprovação (Diretor)", "Status de Envios"])
-    vendedores = ["Amanda Silva","Caio Simões","Késsila Rodrigues","Leonardo Abreu","Thomas Bierhals","Fabio Rocha","Thiagner Correa","Maria Gessica","Eduardo Machado","RPsui","Mariana Andreis","André Mallman","Gustavo Laureano"]
 
     if menu == "Cadastrar Reposição":
         st.title("Pedidos de Reposição")
         if 'reset_trigger' not in st.session_state: st.session_state.reset_trigger = 0
-        df_base, _ = carregar_aba_segura("Base de vendidos")
-        st.session_state.df_base = df_base
-        df_repo, ws_repo = carregar_aba_segura("Relatorio_Reposicoes")
-        df_enviados, _ = carregar_aba_segura("Rep enviadas")
+        df_base = ler_planilha_seguro(sh.worksheet("Base de vendidos")); st.session_state.df_base = df_base
+        df_repo, ws_repo = ler_planilha_seguro(sh.worksheet("Relatorio_Reposicoes")), sh.worksheet("Relatorio_Reposicoes")
+        df_enviados = ler_planilha_seguro(sh.worksheet("Rep enviadas"))
         rk = st.session_state.reset_trigger
         
-        col1, col2 = st.columns(2)
-        bloqueado = False
+        col1, col2 = st.columns(2); bloqueado = False
         with col1:
-            st.subheader("Identificação")
-            lista_brincos = [""] + sorted(df_base['Brinco'].unique().astype(str).tolist())
-            brinco_sel = st.selectbox("Brinco*", options=lista_brincos, key=f"br_{rk}", on_change=atualizar_dados_animal)
-            if brinco_sel and not df_enviados.empty:
-                ja_env = df_enviados[(df_enviados.iloc[:, 15].astype(str) == str(brinco_sel)) & (df_enviados.iloc[:, 5].astype(str) == st.session_state.get('cliente_f'))]
-                if not ja_env.empty:
-                    st.write(f":red[**Reposição deste animal já foi cadastrada anteriormente**]"); bloqueado = True
-            br_atual = st.session_state.get(f"br_{rk}")
-            ids_dna = [""]
-            if br_atual:
-                c_dna = next((c for c in df_base.columns if 'DNA' in c.upper()), df_base.columns[0])
-                ids_dna = [""] + sorted(df_base[df_base['Brinco'].astype(str)==br_atual][c_dna].unique().tolist())
-            dna_sel = st.selectbox("ID_DNA*", options=ids_dna, key=f"dna_{rk}", on_change=atualizar_dados_animal)
-            if brinco_sel and dna_sel and not df_repo.empty:
-                ja_sol = df_repo[(df_repo.iloc[:, 1].astype(str) == str(brinco_sel)) & (df_repo.iloc[:, 0].astype(str) == str(dna_sel))]
-                if not ja_sol.empty:
-                    st.write(f":red[**Solicitação já existente. Status: {ja_sol.iloc[-1, 13]}**]"); bloqueado = True
+            brinco_sel = st.selectbox("Brinco*", options=[""] + sorted(df_base['Brinco'].unique().astype(str).tolist()), key=f"br_{rk}", on_change=atualizar_dados_animal)
+            dna_sel = st.selectbox("ID_DNA*", options=[""] + sorted(df_base[df_base['Brinco'].astype(str)==st.session_state.get(f"br_{rk}")].iloc[:,0].unique().tolist()) if st.session_state.get(f"br_{rk}") else [""], key=f"dna_{rk}", on_change=atualizar_dados_animal)
             st.text_input("Cliente", value=st.session_state.get('cliente_f', ''), disabled=True)
-            st.text_input("CNPJ", value=st.session_state.get('cnpj_f', ''), disabled=True)
         with col2:
-            st.subheader("Detalhes")
-            st.text_input("Entrega Original", value=st.session_state.get('entrega_f', ''), disabled=True)
-            vendedor_sel = st.selectbox("Solicitante*", options=[""] + vendedores, key=f"sol_{rk}")
-            motivos_lista = obter_todos_motivos()
-            motivo_sel = st.selectbox("Motivo*", options=[""] + motivos_lista, key=f"mot_{rk}")
-            if motivo_sel:
-                dentro_prazo = validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999))
-                if not dentro_prazo:
-                    st.error(f"⚠️ O motivo '{motivo_sel}' está fora do prazo de garantia ({st.session_state.get('dias_f', 0)} dias após entrega).")
-            st.number_input("Idade (Dias)", value=st.session_state.get('idade_f', 0), disabled=True)
-        st.divider()
-        c3, c4 = st.columns(2)
-        with c3:
-            foto = st.file_uploader("Foto", type=['png', 'jpg', 'jpeg'], key=f"foto_{rk}")
-            add_prog = st.selectbox("Adicionar animal na programação?*", ["", "Sim", "Não"], key=f"prog_{rk}")
-        with c4:
-            obs = st.text_area("Observações*", key=f"obs_{rk}")
+            st.text_input("Solicitante", value=st.session_state.user_nome, disabled=True)
+            motivo_sel = st.selectbox("Motivo*", options=[""] + obter_todos_motivos(), key=f"mot_{rk}")
             tipo_r = st.selectbox("Tipo*", options=["", "Parcial", "Total"], key=f"tipo_{rk}")
         
         if st.button("Salvar Solicitação", disabled=bloqueado):
-            if not brinco_sel or not dna_sel or not vendedor_sel:
-                st.warning("⚠️ Preencha os campos obrigatórios!")
-            else:
-                motivo_final = motivo_sel
-                if not validar_prazo_motivo(motivo_sel, st.session_state.get('sex_f',''), st.session_state.get('dias_f', 9999)):
-                    motivo_final = f"FORA DO PRAZO - {motivo_sel}"
-                ws_repo.append_row([
-                    str(dna_sel), str(brinco_sel), date.today().strftime("%d/%m/%Y"),
-                    st.session_state.get('entrega_f',''), st.session_state.get('cliente_f',''),
-                    vendedor_sel, motivo_final, str(st.session_state.get('idade_f',0)),
-                    (foto.name if foto else ""), obs, add_prog, tipo_r, "Não", "PENDENTE", st.session_state.get('cnpj_f','')
-                ])
-                st.success("✅ Salvo!"); time.sleep(1); st.session_state.reset_trigger += 1; st.rerun()
+            ws_repo.append_row([str(dna_sel), str(brinco_sel), date.today().strftime("%d/%m/%Y"), st.session_state.get('entrega_f',''), st.session_state.get('cliente_f',''), st.session_state.user_nome, motivo_sel, str(st.session_state.get('idade_f',0)), "", "", "Não", tipo_r, "Não", "PENDENTE", st.session_state.get('cnpj_f','')])
+            st.success("✅ Salvo!"); time.sleep(1); st.session_state.reset_trigger += 1; st.rerun()
 
-        st.divider()
-        st.subheader("📋 Historico de Lançamentos")
+        st.divider(); st.subheader("📋 Meus Lançamentos")
         if not df_repo.empty:
             df_hist = df_repo.copy()
-            if st.session_state.usuario_nivel != 'admin':
-                df_hist = df_hist[df_hist.iloc[:, 5] == st.session_state.usuario_nome]
-            
-            exibicao = df_hist.iloc[::-1] 
-            st.dataframe(exibicao, use_container_width=True, height=400)
-            
-            id_para_excluir = st.selectbox("Excluir Reposição (Selecione o Brinco):", [""] + exibicao.iloc[:, 1].tolist())
-            if id_para_excluir and st.button(f"🗑️ Confirmar Exclusão"):
-                dna_aux = exibicao[exibicao.iloc[:, 1] == id_para_excluir].iloc[0, 0]
-                linhas = ws_repo.get_all_values()
-                for idx, row in enumerate(linhas):
-                    if idx == 0: continue
-                    if str(row[1]) == str(id_para_excluir) and str(row[0]) == str(dna_aux):
-                        ws_repo.delete_rows(idx + 1)
-                        st.rerun()
+            if st.session_state.user_nivel != 'Admin':
+                df_hist = df_hist[df_hist.iloc[:, 5] == st.session_state.user_nome]
+            st.dataframe(df_hist.iloc[::-1], use_container_width=True, height=300)
 
     elif menu == "Aprovação (Diretor)":
         st.title("Painel de Aprovação")
-        pwd = st.text_input("Senha", type="password")
+        pwd = st.text_input("Senha Diretor", type="password")
         if pwd == "dna123":
-            df_ap, ws_ap = carregar_aba_segura("Relatorio_Reposicoes")
-            if not df_ap.empty:
-                pend = df_ap[df_ap.iloc[:, 13] == "PENDENTE"].copy()
-                if pend.empty: st.success("Nada pendente.")
-                else:
-                    st.subheader("Selecione os itens para aprovação em massa:")
-                    pend.insert(0, "Selecionar", False)
-                    edit_ap = st.data_editor(pend.iloc[::-1], column_config={"Selecionar": st.column_config.CheckboxColumn(required=True)}, disabled=[c for c in pend.columns if c != "Selecionar"], use_container_width=True, hide_index=True)
-                    sel_ap = edit_ap[edit_ap["Selecionar"] == True]
-                    if not sel_ap.empty:
-                        if st.button(f"✅ APROVAR SELECIONADOS"):
-                            for _, r in sel_ap.iterrows():
-                                idx = df_ap[(df_ap.iloc[:,1].astype(str)==str(r.iloc[2])) & (df_ap.iloc[:,0].astype(str)==str(r.iloc[1]))].index[0]
-                                ws_ap.update_cell(idx + 2, 14, "APROVADO")
-                            st.rerun()
+            df_ap, ws_ap = ler_planilha_seguro(sh.worksheet("Relatorio_Reposicoes")), sh.worksheet("Relatorio_Reposicoes")
+            pend = df_ap[df_ap.iloc[:, 13] == "PENDENTE"].copy()
+            if not pend.empty:
+                pend.insert(0, "Selecionar", False)
+                edit_ap = st.data_editor(pend, use_container_width=True, hide_index=True)
+                if st.button("✅ APROVAR SELECIONADOS"):
+                    for _, r in edit_ap[edit_ap["Selecionar"] == True].iterrows():
+                        idx = df_ap[(df_ap.iloc[:,1].astype(str)==str(r.iloc[2])) & (df_ap.iloc[:,0].astype(str)==str(r.iloc[1]))].index[0]
+                        ws_ap.update_cell(idx + 2, 14, "APROVADO")
+                    st.rerun()
 
     elif menu == "Status de Envios":
-        st.title("🚚 Status e Exportação PDF")
-        df_s, ws_s = carregar_aba_segura("Relatorio_Reposicoes")
-        df_env, _ = carregar_aba_segura("Rep enviadas")
-        
+        st.title("🚚 Status")
+        df_s, ws_s = ler_planilha_seguro(sh.worksheet("Relatorio_Reposicoes")), sh.worksheet("Relatorio_Reposicoes")
+        df_env = ler_planilha_seguro(sh.worksheet("Rep enviadas"))
         if not df_s.empty:
-            if st.session_state.usuario_nivel != 'admin':
-                df_s = df_s[df_s.iloc[:, 5] == st.session_state.usuario_nome]
+            if st.session_state.user_nivel != 'Admin':
+                df_s = df_s[df_s.iloc[:, 5] == st.session_state.user_nome]
             
+            # ATUALIZAÇÃO AUTOMÁTICA DO STATUS "SIM"
             if not df_env.empty:
                 for idx, row in df_s.iterrows():
-                    brinco_v = str(row.iloc[1])
-                    if brinco_v in df_env.iloc[:, 15].astype(str).values:
-                        if row.iloc[12] != "Sim":
-                            ws_s.update_cell(idx + 2, 13, "Sim")
-                            st.rerun()
-
-            df_v = df_s.copy(); df_v.insert(0, "Selecionar", False)
-            edit_v = st.data_editor(df_v.iloc[::-1], column_config={"Selecionar": st.column_config.CheckboxColumn(required=True)}, disabled=[c for c in df_v.columns if c != "Selecionar"], use_container_width=True, hide_index=True)
-            sel_v = edit_v[edit_v["Selecionar"] == True]
-            if not sel_v.empty:
-                if st.button("Gerar PDF Selecionados"):
-                    list_pdf = []
-                    for _, r in sel_v.iterrows():
-                        list_pdf.append({
-                            'DNA_ID': r.iloc[1], 'Brinco': r.iloc[2], 'Data': r.iloc[3], 
-                            'Cliente': r.iloc[5], 'Motivo': r.iloc[7], 'Tipo_repo': r.iloc[12], 
-                            'Status': r.iloc[14], 'CNPJ': r.iloc[15] if len(r)>15 else "N/A"
-                        })
-                    pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
-                    st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v7.4")
+                    if str(row.iloc[1]) in df_env.iloc[:, 15].astype(str).values and row.iloc[12] != "Sim":
+                        ws_s.update_cell(idx + 2, 13, "Sim")
+                        st.rerun()
+            st.dataframe(df_s.iloc[::-1], use_container_width=True)
+    st.caption("DNA América do Sul - v7.6")

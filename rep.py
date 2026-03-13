@@ -6,7 +6,7 @@ import time
 from fpdf import FPDF
 import io
 import unicodedata
-import extra_streamlit_components as stx  # Biblioteca para Cookies
+import extra_streamlit_components as stx  
 
 # --- 1. PREVENIR HIBERNAÇÃO ---
 if st.query_params.get("ping") == "true":
@@ -37,18 +37,17 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- GERENCIADOR de COOKIES ---
-@st.cache_resource
-def get_manager():
+# --- GERENCIADOR DE COOKIES (CORRIGIDO: SEM CACHE) ---
+def obter_cookie_manager():
     return stx.CookieManager()
 
-cookie_manager = get_manager()
+cookie_manager = obter_cookie_manager()
 
 # --- LÓGICA DE LOGIN COM MEMÓRIA ---
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
-# Tenta recuperar login salvo nos cookies
+# Tenta recuperar login salvo nos cookies (apenas se não estiver logado na sessão)
 if not st.session_state.logado:
     saved_email = cookie_manager.get('dna_user_email')
     saved_pass = cookie_manager.get('dna_user_pass')
@@ -63,14 +62,10 @@ if not st.session_state.logado:
                 st.session_state.logado = True
                 st.session_state.usuario_nome = user.iloc[0]['nome']
                 st.session_state.usuario_nivel = user.iloc[0]['nivel']
-            else:
-                # Se o cookie for inválido, limpa
-                cookie_manager.delete('dna_user_email')
-                cookie_manager.delete('dna_user_pass')
         except:
             pass
 
-# Tela de Login (se não houver cookie ou falhar)
+# Tela de Login
 if not st.session_state.logado:
     st.title("DNA - Acesso ao Sistema")
     aba_login, aba_cad = st.tabs(["Acessar Conta", "Criar Nova Conta"])
@@ -113,12 +108,12 @@ if not st.session_state.logado:
             try:
                 ws_u = sh.worksheet("Usuarios")
                 ws_u.append_row([email_novo, senha_novo, nome_novo, "user"])
-                st.success("Conta criada! Agora acesse na aba 'Acessar Conta'.")
+                st.success("Conta criada! Acesse na aba 'Acessar Conta'.")
             except:
                 st.error("Erro ao cadastrar.")
     st.stop()
 
-# --- RESTANTE DO CÓDIGO (MANTIDO IGUAL) ---
+# --- RESTANTE DO CÓDIGO ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
@@ -204,7 +199,6 @@ def atualizar_dados_animal():
 if sh:
     st.sidebar.write(f"Logado como: **{st.session_state.usuario_nome}**")
     
-    # BOTÃO SAIR AGORA LIMPA COOKIES TAMBÉM
     if st.sidebar.button("Sair/Deslogar"):
         st.session_state.logado = False
         cookie_manager.delete('dna_user_email')
@@ -261,7 +255,7 @@ if sh:
         with c3:
             foto = st.file_uploader("Foto", type=['png', 'jpg', 'jpeg'], key=f"foto_{rk}")
             add_prog = st.selectbox("Adicionar animal na programação?*", ["", "Sim", "Não"], key=f"prog_{rk}")
-        with c4:
+        with col2: # Corrigido de c4 para col2 para manter alinhamento original ou use c4
             obs = st.text_area("Observações*", key=f"obs_{rk}")
             tipo_r = st.selectbox("Tipo*", options=["", "Parcial", "Total"], key=f"tipo_{rk}")
         
@@ -351,4 +345,4 @@ if sh:
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
                     st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v7.2")
+    st.caption("DNA América do Sul - v7.3")

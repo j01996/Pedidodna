@@ -36,7 +36,7 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- IMPLEMENTAÇÃO DO LOGIN ---
+# --- BLOCO DE LOGIN COM TRATAMENTO DE ERRO DE CONEXÃO ---
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
@@ -47,20 +47,32 @@ if not st.session_state.logado:
     with aba_login:
         email_log = st.text_input("E-mail", key="email_login")
         senha_log = st.text_input("Senha", type="password", key="senha_login")
+        
         if st.button("Entrar"):
             try:
+                # Força a leitura da aba de usuários
                 ws_u = sh.worksheet("Usuarios")
-                df_u = pd.DataFrame(ws_u.get_all_records())
-                user = df_u[(df_u['email'] == email_log) & (df_u['senha'] == str(senha_log))]
-                if not user.empty:
-                    st.session_state.logado = True
-                    st.session_state.usuario_nome = user.iloc[0]['nome']
-                    st.session_state.usuario_nivel = user.iloc[0]['nivel'] # 'admin' ou 'user'
-                    st.rerun()
+                dados_u = ws_u.get_all_records()
+                
+                if not dados_u:
+                    st.error("Nenhum usuário cadastrado no sistema.")
                 else:
-                    st.error("E-mail ou senha incorretos.")
-            except:
-                st.error("Erro ao acessar aba de usuários.")
+                    df_u = pd.DataFrame(dados_u)
+                    # Comparação segura convertendo tudo para string
+                    user = df_u[(df_u['email'].astype(str) == str(email_log)) & 
+                                (df_u['senha'].astype(str) == str(senha_log))]
+                    
+                    if not user.empty:
+                        st.session_state.logado = True
+                        st.session_state.usuario_nome = user.iloc[0]['nome']
+                        st.session_state.usuario_nivel = user.iloc[0]['nivel'] # 'admin' ou 'user'
+                        st.rerun()
+                    else:
+                        st.error("E-mail ou senha incorretos.")
+            except Exception as e:
+                # Limpa o cache e avisa o usuário se a conexão falhar na primeira vez
+                st.cache_resource.clear()
+                st.warning("Estabilizando conexão com o banco de dados... Por favor, clique em 'Entrar' novamente.")
     
     with aba_cad:
         nome_novo = st.text_input("Nome Completo")
@@ -70,9 +82,9 @@ if not st.session_state.logado:
             try:
                 ws_u = sh.worksheet("Usuarios")
                 ws_u.append_row([email_novo, senha_novo, nome_novo, "user"])
-                st.success("Conta criada com sucesso! Vá para a aba 'Acessar Conta'.")
+                st.success("Conta criada com sucesso! Agora você pode acessar na aba 'Acessar Conta'.")
             except:
-                st.error("Erro ao cadastrar usuário.")
+                st.error("Erro ao cadastrar. Verifique a conexão com a planilha.")
     st.stop()
 
 # --- CLASSE PDF ---
@@ -238,9 +250,9 @@ if sh:
         st.subheader("📋 Historico de Lançamentos")
         if not df_repo.empty:
             df_hist = df_repo.copy()
-            # REGRA DE VISIBILIDADE: Se não for admin, filtra pelo nome do solicitante
+            # VISIBILIDADE: Se não for admin, vê apenas os próprios lançamentos
             if st.session_state.usuario_nivel != 'admin':
-                df_hist = df_hist[df_hist.iloc[:, 5] == vendedor_sel] # Coluna 5 é Solicitante
+                df_hist = df_hist[df_hist.iloc[:, 5] == st.session_state.usuario_nome]
             
             exibicao = df_hist.iloc[::-1] 
             st.dataframe(exibicao, use_container_width=True, height=400)
@@ -281,9 +293,9 @@ if sh:
         df_env, _ = carregar_aba_segura("Rep enviadas")
         
         if not df_s.empty:
-            # REGRA DE VISIBILIDADE STATUS
+            # VISIBILIDADE STATUS: Admin vê tudo, Solicitante vê apenas o dele
             if st.session_state.usuario_nivel != 'admin':
-                df_s = df_s[df_s.iloc[:, 5].isin(vendedores)] # Aqui você pode ajustar para filtrar apenas o nome exato se preferir
+                df_s = df_s[df_s.iloc[:, 5] == st.session_state.usuario_nome]
             
             # ATUALIZAÇÃO AUTOMÁTICA DO STATUS "SIM"
             if not df_env.empty:

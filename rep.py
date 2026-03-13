@@ -6,7 +6,7 @@ import time
 from fpdf import FPDF
 import io
 import unicodedata
-import extra_streamlit_components as stx  
+import extra_streamlit_components as stx
 
 # --- 1. PREVENIR HIBERNAÇÃO ---
 if st.query_params.get("ping") == "true":
@@ -23,7 +23,7 @@ def limpar_texto(texto):
 # 3. Configuração da Página
 st.set_page_config(page_title="DNA - Gestão Comercial", layout="wide")
 
-# 4. Conexão Segura
+# 4. Conexão Segura com a Planilha
 @st.cache_resource
 def iniciar_conexao():
     try:
@@ -37,18 +37,16 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- GERENCIADOR DE COOKIES (CORRIGIDO: SEM CACHE) ---
-def obter_cookie_manager():
-    return stx.CookieManager()
+# --- GERENCIADOR DE COOKIES (SEM CACHE PARA EVITAR ERROS) ---
+cookie_manager = stx.CookieManager()
 
-cookie_manager = obter_cookie_manager()
-
-# --- LÓGICA DE LOGIN COM MEMÓRIA ---
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
-# Tenta recuperar login salvo nos cookies (apenas se não estiver logado na sessão)
+# --- LÓGICA DE RECUPERAÇÃO DE LOGIN (PERSISTÊNCIA) ---
 if not st.session_state.logado:
+    # O Streamlit precisa de um pequeno tempo para ler os cookies do navegador
+    time.sleep(0.5) 
     saved_email = cookie_manager.get('dna_user_email')
     saved_pass = cookie_manager.get('dna_user_pass')
     
@@ -62,10 +60,11 @@ if not st.session_state.logado:
                 st.session_state.logado = True
                 st.session_state.usuario_nome = user.iloc[0]['nome']
                 st.session_state.usuario_nivel = user.iloc[0]['nivel']
+                st.rerun()
         except:
             pass
 
-# Tela de Login
+# --- TELA DE LOGIN ---
 if not st.session_state.logado:
     st.title("DNA - Acesso ao Sistema")
     aba_login, aba_cad = st.tabs(["Acessar Conta", "Criar Nova Conta"])
@@ -73,13 +72,12 @@ if not st.session_state.logado:
     with aba_login:
         email_log = st.text_input("E-mail", key="email_login")
         senha_log = st.text_input("Senha", type="password", key="senha_login")
-        lembrar = st.checkbox("Manter conectado", value=True)
+        lembrar = st.checkbox("Manter conectado (30 dias)", value=True)
         
         if st.button("Entrar"):
             try:
                 ws_u = sh.worksheet("Usuarios")
-                dados_u = ws_u.get_all_records()
-                df_u = pd.DataFrame(dados_u)
+                df_u = pd.DataFrame(ws_u.get_all_records())
                 user = df_u[(df_u['email'].astype(str) == str(email_log)) & 
                             (df_u['senha'].astype(str) == str(senha_log))]
                 
@@ -89,16 +87,16 @@ if not st.session_state.logado:
                     st.session_state.usuario_nivel = user.iloc[0]['nivel']
                     
                     if lembrar:
-                        # Salva cookies por 30 dias
                         cookie_manager.set('dna_user_email', email_log, expires_at=datetime.now() + pd.Timedelta(days=30))
-                        cookie_manager.set('dna_user_pass', senha_log, expires_at=datetime.now() + pd.Timedelta(days=30))
+                        cookie_manager.set('dna_user_pass', str(senha_log), expires_at=datetime.now() + pd.Timedelta(days=30))
                     
+                    st.success("Login realizado!")
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error("E-mail ou senha incorretos.")
             except:
-                st.cache_resource.clear()
-                st.warning("Estabilizando conexão... Clique em 'Entrar' novamente.")
+                st.warning("Estabilizando conexão... Tente clicar em Entrar novamente.")
     
     with aba_cad:
         nome_novo = st.text_input("Nome Completo")
@@ -108,12 +106,12 @@ if not st.session_state.logado:
             try:
                 ws_u = sh.worksheet("Usuarios")
                 ws_u.append_row([email_novo, senha_novo, nome_novo, "user"])
-                st.success("Conta criada! Acesse na aba 'Acessar Conta'.")
+                st.success("Conta criada! Vá para a aba 'Acessar Conta'.")
             except:
                 st.error("Erro ao cadastrar.")
     st.stop()
 
-# --- RESTANTE DO CÓDIGO ---
+# --- DAQUI PARA BAIXO: SEU CÓDIGO ORIGINAL MANTIDO ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
@@ -197,12 +195,11 @@ def atualizar_dados_animal():
             except: st.session_state.dias_f = 9999
 
 if sh:
-    st.sidebar.write(f"Logado como: **{st.session_state.usuario_nome}**")
-    
+    st.sidebar.write(f"Usuário: **{st.session_state.usuario_nome}**")
     if st.sidebar.button("Sair/Deslogar"):
-        st.session_state.logado = False
         cookie_manager.delete('dna_user_email')
         cookie_manager.delete('dna_user_pass')
+        st.session_state.logado = False
         st.rerun()
 
     menu = st.sidebar.radio("Navegação", ["Cadastrar Reposição", "Aprovação (Diretor)", "Status de Envios"])
@@ -255,7 +252,7 @@ if sh:
         with c3:
             foto = st.file_uploader("Foto", type=['png', 'jpg', 'jpeg'], key=f"foto_{rk}")
             add_prog = st.selectbox("Adicionar animal na programação?*", ["", "Sim", "Não"], key=f"prog_{rk}")
-        with col2: # Corrigido de c4 para col2 para manter alinhamento original ou use c4
+        with c4:
             obs = st.text_area("Observações*", key=f"obs_{rk}")
             tipo_r = st.selectbox("Tipo*", options=["", "Parcial", "Total"], key=f"tipo_{rk}")
         
@@ -345,4 +342,4 @@ if sh:
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
                     st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v7.3")
+    st.caption("DNA América do Sul - v7.4")

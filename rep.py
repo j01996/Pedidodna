@@ -6,13 +6,14 @@ import time
 from fpdf import FPDF
 import io
 import unicodedata
+import extra_streamlit_components as stx  # Biblioteca para Cookies
 
-# --- 1. PREVENIR HIBERNAÇÃO (KEEP ALIVE) ---
+# --- 1. PREVENIR HIBERNAÇÃO ---
 if st.query_params.get("ping") == "true":
     st.write("Sistema Online")
     st.stop()
 
-# --- 2. FUNÇÃO PARA LIMPAR CARACTERES DO PDF ---
+# --- 2. FUNÇÃO AUXILIAR PDF ---
 def limpar_texto(texto):
     if not texto: return ""
     texto = str(texto).replace("⚠️", "!").replace("✅", "OK").replace("❌", "X")
@@ -36,10 +37,40 @@ def iniciar_conexao():
 
 sh = iniciar_conexao()
 
-# --- BLOCO DE LOGIN COM TRATAMENTO DE ERRO DE CONEXÃO ---
+# --- GERENCIADOR de COOKIES ---
+@st.cache_resource
+def get_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_manager()
+
+# --- LÓGICA DE LOGIN COM MEMÓRIA ---
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
+# Tenta recuperar login salvo nos cookies
+if not st.session_state.logado:
+    saved_email = cookie_manager.get('dna_user_email')
+    saved_pass = cookie_manager.get('dna_user_pass')
+    
+    if saved_email and saved_pass:
+        try:
+            ws_u = sh.worksheet("Usuarios")
+            df_u = pd.DataFrame(ws_u.get_all_records())
+            user = df_u[(df_u['email'].astype(str) == str(saved_email)) & 
+                        (df_u['senha'].astype(str) == str(saved_pass))]
+            if not user.empty:
+                st.session_state.logado = True
+                st.session_state.usuario_nome = user.iloc[0]['nome']
+                st.session_state.usuario_nivel = user.iloc[0]['nivel']
+            else:
+                # Se o cookie for inválido, limpa
+                cookie_manager.delete('dna_user_email')
+                cookie_manager.delete('dna_user_pass')
+        except:
+            pass
+
+# Tela de Login (se não houver cookie ou falhar)
 if not st.session_state.logado:
     st.title("DNA - Acesso ao Sistema")
     aba_login, aba_cad = st.tabs(["Acessar Conta", "Criar Nova Conta"])
@@ -47,32 +78,32 @@ if not st.session_state.logado:
     with aba_login:
         email_log = st.text_input("E-mail", key="email_login")
         senha_log = st.text_input("Senha", type="password", key="senha_login")
+        lembrar = st.checkbox("Manter conectado", value=True)
         
         if st.button("Entrar"):
             try:
-                # Força a leitura da aba de usuários
                 ws_u = sh.worksheet("Usuarios")
                 dados_u = ws_u.get_all_records()
+                df_u = pd.DataFrame(dados_u)
+                user = df_u[(df_u['email'].astype(str) == str(email_log)) & 
+                            (df_u['senha'].astype(str) == str(senha_log))]
                 
-                if not dados_u:
-                    st.error("Nenhum usuário cadastrado no sistema.")
-                else:
-                    df_u = pd.DataFrame(dados_u)
-                    # Comparação segura convertendo tudo para string
-                    user = df_u[(df_u['email'].astype(str) == str(email_log)) & 
-                                (df_u['senha'].astype(str) == str(senha_log))]
+                if not user.empty:
+                    st.session_state.logado = True
+                    st.session_state.usuario_nome = user.iloc[0]['nome']
+                    st.session_state.usuario_nivel = user.iloc[0]['nivel']
                     
-                    if not user.empty:
-                        st.session_state.logado = True
-                        st.session_state.usuario_nome = user.iloc[0]['nome']
-                        st.session_state.usuario_nivel = user.iloc[0]['nivel'] # 'admin' ou 'user'
-                        st.rerun()
-                    else:
-                        st.error("E-mail ou senha incorretos.")
-            except Exception as e:
-                # Limpa o cache e avisa o usuário se a conexão falhar na primeira vez
+                    if lembrar:
+                        # Salva cookies por 30 dias
+                        cookie_manager.set('dna_user_email', email_log, expires_at=datetime.now() + pd.Timedelta(days=30))
+                        cookie_manager.set('dna_user_pass', senha_log, expires_at=datetime.now() + pd.Timedelta(days=30))
+                    
+                    st.rerun()
+                else:
+                    st.error("E-mail ou senha incorretos.")
+            except:
                 st.cache_resource.clear()
-                st.warning("Estabilizando conexão com o banco de dados... Por favor, clique em 'Entrar' novamente.")
+                st.warning("Estabilizando conexão... Clique em 'Entrar' novamente.")
     
     with aba_cad:
         nome_novo = st.text_input("Nome Completo")
@@ -82,12 +113,12 @@ if not st.session_state.logado:
             try:
                 ws_u = sh.worksheet("Usuarios")
                 ws_u.append_row([email_novo, senha_novo, nome_novo, "user"])
-                st.success("Conta criada com sucesso! Agora você pode acessar na aba 'Acessar Conta'.")
+                st.success("Conta criada! Agora acesse na aba 'Acessar Conta'.")
             except:
-                st.error("Erro ao cadastrar. Verifique a conexão com a planilha.")
+                st.error("Erro ao cadastrar.")
     st.stop()
 
-# --- CLASSE PDF ---
+# --- RESTANTE DO CÓDIGO (MANTIDO IGUAL) ---
 class PDF(FPDF):
     def header(self):
         try: self.image('DNA_white-1024x576-1.png', 10, 8, 30)
@@ -121,7 +152,6 @@ def gerar_pdf_multi_reposicao(lista_dados):
         pdf.ln(4)
     return pdf.output(dest='S').encode('latin-1', 'replace')
 
-# --- REGRAS E AUXILIARES ---
 def carregar_aba_segura(nome_aba):
     try:
         ws = sh.worksheet(nome_aba)
@@ -173,11 +203,15 @@ def atualizar_dados_animal():
 
 if sh:
     st.sidebar.write(f"Logado como: **{st.session_state.usuario_nome}**")
-    menu = st.sidebar.radio("Navegação", ["Cadastrar Reposição", "Aprovação (Diretor)", "Status de Envios"])
-    if st.sidebar.button("Sair"):
-        st.session_state.logado = False
-        st.rerun()
     
+    # BOTÃO SAIR AGORA LIMPA COOKIES TAMBÉM
+    if st.sidebar.button("Sair/Deslogar"):
+        st.session_state.logado = False
+        cookie_manager.delete('dna_user_email')
+        cookie_manager.delete('dna_user_pass')
+        st.rerun()
+
+    menu = st.sidebar.radio("Navegação", ["Cadastrar Reposição", "Aprovação (Diretor)", "Status de Envios"])
     vendedores = ["Amanda Silva","Caio Simões","Késsila Rodrigues","Leonardo Abreu","Thomas Bierhals","Fabio Rocha","Thiagner Correa","Maria Gessica","Eduardo Machado","RPsui","Mariana Andreis","André Mallman","Gustavo Laureano"]
 
     if menu == "Cadastrar Reposição":
@@ -250,7 +284,6 @@ if sh:
         st.subheader("📋 Historico de Lançamentos")
         if not df_repo.empty:
             df_hist = df_repo.copy()
-            # VISIBILIDADE: Se não for admin, vê apenas os próprios lançamentos
             if st.session_state.usuario_nivel != 'admin':
                 df_hist = df_hist[df_hist.iloc[:, 5] == st.session_state.usuario_nome]
             
@@ -293,11 +326,9 @@ if sh:
         df_env, _ = carregar_aba_segura("Rep enviadas")
         
         if not df_s.empty:
-            # VISIBILIDADE STATUS: Admin vê tudo, Solicitante vê apenas o dele
             if st.session_state.usuario_nivel != 'admin':
                 df_s = df_s[df_s.iloc[:, 5] == st.session_state.usuario_nome]
             
-            # ATUALIZAÇÃO AUTOMÁTICA DO STATUS "SIM"
             if not df_env.empty:
                 for idx, row in df_s.iterrows():
                     brinco_v = str(row.iloc[1])
@@ -320,4 +351,4 @@ if sh:
                         })
                     pdf_bytes = gerar_pdf_multi_reposicao(list_pdf)
                     st.download_button("Baixar PDF", data=pdf_bytes, file_name="Relatorio_DNA.pdf", mime="application/pdf")
-    st.caption("DNA América do Sul - v7.1")
+    st.caption("DNA América do Sul - v7.2")
